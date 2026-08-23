@@ -1,0 +1,479 @@
+{
+  "prepared": {
+    "project_context": {
+      "project": "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx",
+      "project_event_id": [
+        237,
+        34,
+        29,
+        187,
+        31,
+        78,
+        234,
+        163,
+        137,
+        38,
+        2,
+        47,
+        170,
+        47,
+        168,
+        89,
+        144,
+        145,
+        59,
+        147,
+        249,
+        57,
+        80,
+        170,
+        184,
+        195,
+        30,
+        142,
+        102,
+        144,
+        49,
+        17
+      ],
+      "project_event": {
+        "id": "ed221dbb1f4eeaa38926022faa2fa85990913b93f93950aab8c31e8e66903111",
+        "pubkey": "eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3",
+        "created_at": 1787526512,
+        "kind": 30621,
+        "tags": [
+          [
+            "d",
+            "st8wrx"
+          ],
+          [
+            "name",
+            "ST8WRX"
+          ],
+          [
+            "description",
+            "Build together. Prove what you created."
+          ],
+          [
+            "a",
+            "30617:cb74b7ffc46c3f57c8ca86dc35ae47a1d0a8f487edfb6d075654777147ec2901:st8wrx"
+          ],
+          [
+            "buzz-visibility",
+            "listed"
+          ]
+        ],
+        "content": "",
+        "sig": "7d115aeb4a79b8c7dde1372cef7d084786a0901eec69bba4dd787ec7f334984bb57a10eeb58d1b22f5c6a39a5166a2bb644a8abf5504faf606c2f53afd1114b8"
+      },
+      "repository_coordinates": [
+        "30617:cb74b7ffc46c3f57c8ca86dc35ae47a1d0a8f487edfb6d075654777147ec2901:st8wrx"
+      ]
+    },
+    "evidence_events": [
+      {
+        "id": "3957080d5239746700851362e02e611e6a41a62f8409902e8b559898ec4047ef",
+        "pubkey": "cb74b7ffc46c3f57c8ca86dc35ae47a1d0a8f487edfb6d075654777147ec2901",
+        "created_at": 1787526513,
+        "kind": 1617,
+        "tags": [
+          [
+            "a",
+            "30617:cb74b7ffc46c3f57c8ca86dc35ae47a1d0a8f487edfb6d075654777147ec2901:st8wrx"
+          ],
+          [
+            "commit",
+            "789f66d370f58a4910d43dc50c8e73e4c8bb5c6b"
+          ],
+          [
+            "url",
+            "https://github.com/Blocpod/ST8WRX"
+          ]
+        ],
+        "content": "Established the independent ST8WRX contribution and BSV provenance foundation at Git commit 789f66d370f58a4910d43dc50c8e73e4c8bb5c6b.",
+        "sig": "bc302d1b7b7e1bc4f52d0bba55a52ffc903f1ed01e2b58425c2c579fbb2c96dfa81c8a9cd746f653ac93e0bf684608141a3049429d41bb4c0a0edc833d7258da"
+      }
+    ],
+    "approval_events": [
+      {
+        "id": "b7bb8bc04179b7b4407370f538a0e06ca4496c4fca321c4046c48e87ee69fc17",
+        "pubkey": "eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3",
+        "created_at": 1787526542,
+        "kind": 49800,
+        "tags": [
+          [
+            "a",
+            "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx"
+          ],
+          [
+            "e",
+            "ada2ce7479748cb4eb931e874e05264ecc2cbab841334e250d6ad15a4c5463c9"
+          ],
+          [
+            "st8-policy",
+            "milestone-1-founders-v1"
+          ],
+          [
+            "st8-decision",
+            "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980"
+          ]
+        ],
+        "content": "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980",
+        "sig": "78039eaf86a67a6244f89679e947c4493a0bf9a07d5c29b54d441528c8e100352eced9a10155d23df4a6f750a2de5fa9715cca02ed6f606755d2bf325a2aa109"
+      },
+      {
+        "id": "5e294dc059f1c25edfe27583d61d4beac1bd421c7f934a9f39a4be6aa6ce1616",
+        "pubkey": "65bf828af6556ce538de664216615cfc13bbdeee51abc2af5a634ff14aea94c1",
+        "created_at": 1787526543,
+        "kind": 49800,
+        "tags": [
+          [
+            "a",
+            "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx"
+          ],
+          [
+            "e",
+            "ada2ce7479748cb4eb931e874e05264ecc2cbab841334e250d6ad15a4c5463c9"
+          ],
+          [
+            "st8-policy",
+            "milestone-1-founders-v1"
+          ],
+          [
+            "st8-decision",
+            "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980"
+          ]
+        ],
+        "content": "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980",
+        "sig": "768081fbb8e844373c4af9e1d721dace50923097990b38224793af270705e9a16b7b22955be75821960912e47a8737ab4993028ba02526a7a8c36406d708ac67"
+      }
+    ],
+    "governance_policy": {
+      "project": "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx",
+      "version": "milestone-1-founders-v1",
+      "founders": [
+        "nostr:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3",
+        "nostr:65bf828af6556ce538de664216615cfc13bbdeee51abc2af5a634ff14aea94c1"
+      ],
+      "normal_threshold": 1,
+      "large_threshold": 2,
+      "large_unit_threshold": 1000
+    },
+    "snapshot": {
+      "project": "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx",
+      "record": {
+        "project": "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx",
+        "contributor": "nostr:cb74b7ffc46c3f57c8ca86dc35ae47a1d0a8f487edfb6d075654777147ec2901",
+        "contributor_kind": "Human",
+        "class": "Engineering",
+        "created_at": 1787526513,
+        "summary": "Independent ST8WRX protocol foundation at Git commit 789f66d370f58a4910d43dc50c8e73e4c8bb5c6b",
+        "evidence_refs": [
+          {
+            "kind": "BuzzEvent",
+            "digest": [
+              57,
+              87,
+              8,
+              13,
+              82,
+              57,
+              116,
+              103,
+              0,
+              133,
+              19,
+              98,
+              224,
+              46,
+              97,
+              30,
+              106,
+              65,
+              166,
+              47,
+              132,
+              9,
+              144,
+              46,
+              139,
+              85,
+              152,
+              152,
+              236,
+              64,
+              71,
+              239
+            ],
+            "locator": "nostr:3957080d5239746700851362e02e611e6a41a62f8409902e8b559898ec4047ef"
+          }
+        ]
+      },
+      "decision": {
+        "contribution_id": [
+          173,
+          162,
+          206,
+          116,
+          121,
+          116,
+          140,
+          180,
+          235,
+          147,
+          30,
+          135,
+          78,
+          5,
+          38,
+          78,
+          204,
+          44,
+          186,
+          184,
+          65,
+          51,
+          78,
+          37,
+          13,
+          106,
+          209,
+          90,
+          76,
+          84,
+          99,
+          201
+        ],
+        "project": "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx",
+        "status": "Accepted",
+        "contribution_units": 1000,
+        "policy_version": "milestone-1-founders-v1",
+        "approvers": [
+          "nostr:65bf828af6556ce538de664216615cfc13bbdeee51abc2af5a634ff14aea94c1",
+          "nostr:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3"
+        ],
+        "decided_at": 1787526572,
+        "rationale": "Two project founders accepted the grounded engineering contribution."
+      }
+    },
+    "commitment": {
+      "project": "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx",
+      "kind": "ContributionSnapshot",
+      "object_id": [
+        198,
+        244,
+        119,
+        78,
+        148,
+        37,
+        200,
+        227,
+        204,
+        129,
+        63,
+        35,
+        248,
+        115,
+        172,
+        245,
+        184,
+        214,
+        55,
+        63,
+        160,
+        50,
+        94,
+        57,
+        126,
+        200,
+        163,
+        78,
+        9,
+        119,
+        113,
+        162
+      ],
+      "state_digest": [
+        198,
+        244,
+        119,
+        78,
+        148,
+        37,
+        200,
+        227,
+        204,
+        129,
+        63,
+        35,
+        248,
+        115,
+        172,
+        245,
+        184,
+        214,
+        55,
+        63,
+        160,
+        50,
+        94,
+        57,
+        126,
+        200,
+        163,
+        78,
+        9,
+        119,
+        113,
+        162
+      ]
+    },
+    "merkle_proof": {
+      "project": "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx",
+      "leaf_hash": [
+        165,
+        216,
+        109,
+        34,
+        88,
+        159,
+        224,
+        68,
+        212,
+        226,
+        24,
+        208,
+        188,
+        144,
+        157,
+        170,
+        93,
+        87,
+        215,
+        93,
+        41,
+        34,
+        123,
+        221,
+        253,
+        31,
+        127,
+        136,
+        222,
+        106,
+        206,
+        38
+      ],
+      "leaf_index": 0,
+      "leaf_count": 1,
+      "siblings": []
+    },
+    "anchor_payload": {
+      "network": "Testnet",
+      "project_digest": [
+        182,
+        209,
+        40,
+        171,
+        63,
+        103,
+        134,
+        103,
+        198,
+        225,
+        180,
+        64,
+        144,
+        124,
+        49,
+        165,
+        6,
+        93,
+        221,
+        18,
+        224,
+        5,
+        225,
+        192,
+        42,
+        241,
+        234,
+        159,
+        196,
+        100,
+        101,
+        11
+      ],
+      "merkle_root": [
+        165,
+        216,
+        109,
+        34,
+        88,
+        159,
+        224,
+        68,
+        212,
+        226,
+        24,
+        208,
+        188,
+        144,
+        157,
+        170,
+        93,
+        87,
+        215,
+        93,
+        41,
+        34,
+        123,
+        221,
+        253,
+        31,
+        127,
+        136,
+        222,
+        106,
+        206,
+        38
+      ],
+      "leaf_count": 1,
+      "snapshot_id": [
+        198,
+        244,
+        119,
+        78,
+        148,
+        37,
+        200,
+        227,
+        204,
+        129,
+        63,
+        35,
+        248,
+        115,
+        172,
+        245,
+        184,
+        214,
+        55,
+        63,
+        160,
+        50,
+        94,
+        57,
+        126,
+        200,
+        163,
+        78,
+        9,
+        119,
+        113,
+        162
+      ]
+    }
+  },
+  "locking_script_hex": "006a4c7a535438575258004253565f414e43484f520056310001b6d128ab3f678667c6e1b440907c31a5065ddd12e005e1c02af1ea9fc464650ba5d86d22589fe044d4e218d0bc909daa5d57d75d29227bddfd1f7f88de6ace2600000001c6f4774e9425c8e3cc813f23f873acf5b8d6373fa0325e397ec8a34e097771a2"
+}

@@ -28,6 +28,12 @@ wallet, broadcaster, token, or smart contract.
 
 ## Wallet contract
 
+Before wallet preparation, `st8wrx-contribution intent` verifies the signed
+project/evidence context and emits the exact kind-49800 Nostr event template
+project authorities sign. `prepare` derives approver identities from those
+verified signatures and enforces the configured unique-founder threshold; it
+does not accept caller-supplied approver names.
+
 `prepared.json` contains `locking_script_hex`. A BRC-100 adapter should:
 
 1. call `createAction` for a zero-satoshi data output using that exact script;

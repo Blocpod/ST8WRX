@@ -9,6 +9,7 @@
 
 use buzz_core::{verify_event, Event};
 use buzz_sdk::validate_project_envelope;
+use nostr::{EventBuilder, Kind, Tag};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use st8_bsv_provenance::{
@@ -26,7 +27,10 @@ use std::path::Path;
 use thiserror::Error;
 
 const SNAPSHOT_DOMAIN: &[u8] = b"ST8WRX\0CONTRIBUTION_SNAPSHOT\0V1";
+const GOVERNANCE_INTENT_DOMAIN: &[u8] = b"ST8WRX\0GOVERNANCE_INTENT\0V1";
 const RECEIPT_VERSION: u16 = 1;
+/// Nostr event kind used for append-only ST8WRX project-governance approvals.
+pub const KIND_ST8_GOVERNANCE_APPROVAL: u16 = 49_800;
 
 /// Signed NIP-MP project context used to resolve project-scoped evidence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,6 +136,92 @@ impl BuzzProjectContext {
     }
 }
 
+/// Exact governance action that project authorities sign before a decision is
+/// accepted. The digest excludes the eventual approver set so each founder can
+/// sign the same proposal independently.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernanceDecisionIntent {
+    /// Deterministic contribution being decided.
+    pub contribution_id: Digest32,
+    /// Project identity.
+    pub project: String,
+    /// Proposed decision state.
+    pub status: DecisionStatus,
+    /// Proposed non-transferable Contribution Units.
+    pub contribution_units: u64,
+    /// Governance policy version.
+    pub policy_version: String,
+    /// Unix timestamp at which the approval set closes.
+    pub decided_at: i64,
+    /// Human-readable rationale bound into every approval signature.
+    pub rationale: String,
+}
+
+impl GovernanceDecisionIntent {
+    /// Returns the domain-separated canonical bytes signed by project authorities.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, EngineError> {
+        if self.project.trim().is_empty()
+            || self.policy_version.trim().is_empty()
+            || self.rationale.trim().is_empty()
+            || self.project.as_bytes().contains(&0)
+            || self.policy_version.as_bytes().contains(&0)
+            || self.rationale.as_bytes().contains(&0)
+        {
+            return Err(EngineError::InvalidGovernanceIntent);
+        }
+        if (self.status == DecisionStatus::Rejected && self.contribution_units != 0)
+            || (self.status != DecisionStatus::Rejected && self.contribution_units == 0)
+        {
+            return Err(EngineError::InvalidGovernanceIntent);
+        }
+        let mut out = Vec::new();
+        out.extend_from_slice(GOVERNANCE_INTENT_DOMAIN);
+        out.extend_from_slice(&self.contribution_id);
+        put_bytes(&mut out, self.project.as_bytes())?;
+        out.extend_from_slice(&self.status.protocol_code().to_be_bytes());
+        out.extend_from_slice(&self.contribution_units.to_be_bytes());
+        put_bytes(&mut out, self.policy_version.as_bytes())?;
+        out.extend_from_slice(&self.decided_at.to_be_bytes());
+        put_bytes(&mut out, self.rationale.as_bytes())?;
+        Ok(out)
+    }
+
+    /// Computes the exact digest carried by every signed approval event.
+    pub fn digest(&self) -> Result<Digest32, EngineError> {
+        Ok(Sha256::digest(self.canonical_bytes()?).into())
+    }
+
+    /// Builds the unsigned Nostr event project authorities sign. The event
+    /// binds the intent digest, contribution, project, and policy version.
+    pub fn approval_event_builder(&self) -> Result<EventBuilder, EngineError> {
+        let digest = hex::encode(self.digest()?);
+        let contribution = hex::encode(self.contribution_id);
+        let tags = [
+            Tag::parse(["a", self.project.as_str()])
+                .map_err(|_| EngineError::InvalidGovernanceIntent)?,
+            Tag::parse(["e", contribution.as_str()])
+                .map_err(|_| EngineError::InvalidGovernanceIntent)?,
+            Tag::parse(["st8-policy", self.policy_version.as_str()])
+                .map_err(|_| EngineError::InvalidGovernanceIntent)?,
+            Tag::parse(["st8-decision", digest.as_str()])
+                .map_err(|_| EngineError::InvalidGovernanceIntent)?,
+        ];
+        Ok(EventBuilder::new(Kind::Custom(KIND_ST8_GOVERNANCE_APPROVAL), digest).tags(tags))
+    }
+
+    fn from_decision(decision: &ContributionDecision) -> Self {
+        Self {
+            contribution_id: decision.contribution_id,
+            project: decision.project.clone(),
+            status: decision.status,
+            contribution_units: decision.contribution_units,
+            policy_version: decision.policy_version.clone(),
+            decided_at: decision.decided_at,
+            rationale: decision.rationale.clone(),
+        }
+    }
+}
+
 /// Configurable founder approval policy. It is project governance, not a DAO.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GovernancePolicy {
@@ -169,52 +259,79 @@ impl GovernancePolicy {
         Ok(())
     }
 
-    /// Creates and validates a governance decision without altering the original record.
-    pub fn decide(
+    /// Creates the exact proposal project authorities must sign.
+    pub fn decision_intent(
         &self,
         record: &ContributionRecord,
         status: DecisionStatus,
         contribution_units: u64,
-        approvers: Vec<String>,
         decided_at: i64,
         rationale: String,
-    ) -> Result<ContributionDecision, EngineError> {
+    ) -> Result<GovernanceDecisionIntent, EngineError> {
         self.validate()?;
         if record.project != self.project {
             return Err(EngineError::ProjectMismatch);
         }
-        let decision = ContributionDecision {
+        let intent = GovernanceDecisionIntent {
             contribution_id: record.id()?,
             project: self.project.clone(),
             status,
             contribution_units,
             policy_version: self.version.clone(),
-            approvers,
             decided_at,
             rationale,
         };
-        self.verify_decision(record, &decision)?;
+        let _ = intent.digest()?;
+        Ok(intent)
+    }
+
+    /// Creates and validates a decision from signed project-authority approvals
+    /// without altering the original contribution record.
+    pub fn decide(
+        &self,
+        record: &ContributionRecord,
+        intent: &GovernanceDecisionIntent,
+        approval_events: &[Event],
+    ) -> Result<ContributionDecision, EngineError> {
+        self.validate()?;
+        if intent.project != self.project
+            || intent.policy_version != self.version
+            || intent.contribution_id != record.id()?
+        {
+            return Err(EngineError::ProjectMismatch);
+        }
+        let approvers = self.verify_approval_events(record, intent, approval_events)?;
+        let decision = ContributionDecision {
+            contribution_id: intent.contribution_id,
+            project: intent.project.clone(),
+            status: intent.status,
+            contribution_units: intent.contribution_units,
+            policy_version: intent.policy_version.clone(),
+            approvers,
+            decided_at: intent.decided_at,
+            rationale: intent.rationale.clone(),
+        };
+        self.verify_decision(record, &decision, approval_events)?;
         Ok(decision)
     }
 
-    /// Independently verifies a decision against this exact policy version.
+    /// Independently verifies a decision and its signed approval events against
+    /// this exact policy version.
     pub fn verify_decision(
         &self,
         record: &ContributionRecord,
         decision: &ContributionDecision,
+        approval_events: &[Event],
     ) -> Result<(), EngineError> {
         self.validate()?;
         decision.validate_for(record)?;
         if self.project != record.project || decision.policy_version != self.version {
             return Err(EngineError::ProjectMismatch);
         }
-        let founders = self.canonical_founders()?;
-        let approvers = decision.canonical_approvers()?;
-        if approvers
-            .iter()
-            .any(|approver| founders.binary_search(approver).is_err())
-        {
-            return Err(EngineError::UnauthorizedApprover);
+        let intent = GovernanceDecisionIntent::from_decision(decision);
+        let approvers = self.verify_approval_events(record, &intent, approval_events)?;
+        if approvers != decision.canonical_approvers()? {
+            return Err(EngineError::GovernanceApprovalMismatch);
         }
         let required = if decision.contribution_units >= self.large_unit_threshold {
             self.large_threshold
@@ -228,6 +345,53 @@ impl GovernancePolicy {
             });
         }
         Ok(())
+    }
+
+    fn verify_approval_events(
+        &self,
+        record: &ContributionRecord,
+        intent: &GovernanceDecisionIntent,
+        approval_events: &[Event],
+    ) -> Result<Vec<String>, EngineError> {
+        if intent.project != self.project
+            || intent.policy_version != self.version
+            || intent.contribution_id != record.id()?
+        {
+            return Err(EngineError::ProjectMismatch);
+        }
+        let expected_digest = hex::encode(intent.digest()?);
+        let expected_contribution = hex::encode(intent.contribution_id);
+        let founders = self.canonical_founders()?;
+        let mut approvers = BTreeSet::new();
+        for event in approval_events {
+            verify_event(event)
+                .map_err(|error| EngineError::InvalidGovernanceApproval(error.to_string()))?;
+            if event.kind.as_u16() != KIND_ST8_GOVERNANCE_APPROVAL
+                || event.content != expected_digest
+                || single_tag_value(event, "a") != Some(intent.project.as_str())
+                || single_tag_value(event, "e") != Some(expected_contribution.as_str())
+                || single_tag_value(event, "st8-policy") != Some(intent.policy_version.as_str())
+                || single_tag_value(event, "st8-decision") != Some(expected_digest.as_str())
+            {
+                return Err(EngineError::InvalidGovernanceApproval(
+                    "approval event does not bind the exact decision intent".into(),
+                ));
+            }
+            let approval_time = i64::try_from(event.created_at.as_secs())
+                .map_err(|_| EngineError::InvalidGovernanceApproval("timestamp overflow".into()))?;
+            if approval_time < record.created_at {
+                return Err(EngineError::GovernanceApprovalBeforeContribution);
+            }
+            if approval_time > intent.decided_at {
+                return Err(EngineError::GovernanceApprovalAfterDecision);
+            }
+            let approver = format!("nostr:{}", event.pubkey.to_hex());
+            if founders.binary_search(&approver).is_err() {
+                return Err(EngineError::UnauthorizedApprover);
+            }
+            approvers.insert(approver);
+        }
+        Ok(approvers.into_iter().collect())
     }
 
     fn canonical_founders(&self) -> Result<Vec<String>, EngineError> {
@@ -279,8 +443,10 @@ pub struct ContributionProposal {
     pub status: DecisionStatus,
     /// Non-transferable Contribution Units awarded.
     pub contribution_units: u64,
-    /// Project-authority approvers.
-    pub approvers: Vec<String>,
+    /// Full signed project-authority approval events. Approver identities are
+    /// derived from verified event authors, never trusted from caller strings.
+    #[serde(default)]
+    pub approval_events: Vec<Event>,
     /// Decision timestamp in Unix seconds.
     pub decided_at: i64,
     /// Decision rationale.
@@ -288,33 +454,57 @@ pub struct ContributionProposal {
 }
 
 impl ContributionProposal {
-    /// Verifies the proposal and prepares the deterministic BSV testnet payload.
-    pub fn prepare(self) -> Result<PreparedContributionAnchor, EngineError> {
-        let project_context = BuzzProjectContext::from_event(&self.project_event)?;
-        let record = project_context.contribution_from_events(
-            self.contributor,
-            self.contributor_kind,
-            self.class,
-            self.created_at,
-            self.summary,
-            &self.evidence_events,
-        )?;
-        let decision = self.governance_policy.decide(
+    /// Verifies signed Buzz evidence and returns the exact governance intent
+    /// founders must sign before the contribution can be prepared.
+    pub fn governance_intent(&self) -> Result<GovernanceDecisionIntent, EngineError> {
+        let (project_context, record) = self.grounded_record()?;
+        if self.governance_policy.project != project_context.project {
+            return Err(EngineError::ProjectMismatch);
+        }
+        self.governance_policy.decision_intent(
             &record,
             self.status,
             self.contribution_units,
-            self.approvers,
             self.decided_at,
-            self.rationale,
+            self.rationale.clone(),
+        )
+    }
+
+    /// Verifies the proposal and prepares the deterministic BSV testnet payload.
+    pub fn prepare(self) -> Result<PreparedContributionAnchor, EngineError> {
+        let (project_context, record) = self.grounded_record()?;
+        let intent = self.governance_policy.decision_intent(
+            &record,
+            self.status,
+            self.contribution_units,
+            self.decided_at,
+            self.rationale.clone(),
         )?;
+        let decision = self
+            .governance_policy
+            .decide(&record, &intent, &self.approval_events)?;
         let snapshot = ContributionSnapshot::new(record, decision)?;
         PreparedContributionAnchor::new(
             project_context,
             self.evidence_events,
+            self.approval_events,
             self.governance_policy,
             snapshot,
             BsvNetwork::Testnet,
         )
+    }
+
+    fn grounded_record(&self) -> Result<(BuzzProjectContext, ContributionRecord), EngineError> {
+        let project_context = BuzzProjectContext::from_event(&self.project_event)?;
+        let record = project_context.contribution_from_events(
+            self.contributor.clone(),
+            self.contributor_kind,
+            self.class,
+            self.created_at,
+            self.summary.clone(),
+            &self.evidence_events,
+        )?;
+        Ok((project_context, record))
     }
 }
 
@@ -325,6 +515,8 @@ pub struct PreparedContributionAnchor {
     pub project_context: BuzzProjectContext,
     /// Full signed contribution evidence.
     pub evidence_events: Vec<Event>,
+    /// Full signed project-governance approval events.
+    pub approval_events: Vec<Event>,
     /// Governance policy.
     pub governance_policy: GovernancePolicy,
     /// Accepted contribution snapshot.
@@ -342,6 +534,7 @@ impl PreparedContributionAnchor {
     pub fn new(
         project_context: BuzzProjectContext,
         evidence_events: Vec<Event>,
+        approval_events: Vec<Event>,
         governance_policy: GovernancePolicy,
         snapshot: ContributionSnapshot,
         network: BsvNetwork,
@@ -351,7 +544,11 @@ impl PreparedContributionAnchor {
         }
         project_context.verify()?;
         verify_grounded_record_evidence(&project_context, &snapshot.record, &evidence_events)?;
-        governance_policy.verify_decision(&snapshot.record, &snapshot.decision)?;
+        governance_policy.verify_decision(
+            &snapshot.record,
+            &snapshot.decision,
+            &approval_events,
+        )?;
         if project_context.project != snapshot.project
             || governance_policy.project != snapshot.project
         {
@@ -365,6 +562,7 @@ impl PreparedContributionAnchor {
         let prepared = Self {
             project_context,
             evidence_events,
+            approval_events,
             governance_policy,
             snapshot,
             commitment,
@@ -383,8 +581,11 @@ impl PreparedContributionAnchor {
             &self.snapshot.record,
             &self.evidence_events,
         )?;
-        self.governance_policy
-            .verify_decision(&self.snapshot.record, &self.snapshot.decision)?;
+        self.governance_policy.verify_decision(
+            &self.snapshot.record,
+            &self.snapshot.decision,
+            &self.approval_events,
+        )?;
         if self.project_context.project != self.snapshot.project
             || self.governance_policy.project != self.snapshot.project
             || self.commitment != self.snapshot.commitment()?
@@ -418,6 +619,7 @@ impl PreparedContributionAnchor {
             version: RECEIPT_VERSION,
             project_context: self.project_context,
             evidence_events: self.evidence_events,
+            approval_events: self.approval_events,
             governance_policy: self.governance_policy,
             snapshot: self.snapshot,
             commitment: self.commitment,
@@ -487,6 +689,8 @@ pub struct ContributionAnchorReceipt {
     pub project_context: BuzzProjectContext,
     /// Full signed Buzz evidence retained for independent verification.
     pub evidence_events: Vec<Event>,
+    /// Full signed project-governance approvals retained for independent verification.
+    pub approval_events: Vec<Event>,
     /// Governance policy used for acceptance.
     pub governance_policy: GovernancePolicy,
     /// Preserved contribution state.
@@ -506,21 +710,12 @@ pub struct ContributionAnchorReceipt {
 impl ContributionAnchorReceipt {
     /// Executes the wallet and broadcaster boundaries and constructs a receipt.
     pub fn anchor<P: AnchorTransactionProvider, B: AnchorBroadcaster>(
-        project_context: BuzzProjectContext,
-        evidence_events: Vec<Event>,
-        governance_policy: GovernancePolicy,
-        snapshot: ContributionSnapshot,
-        network: BsvNetwork,
+        prepared: PreparedContributionAnchor,
         provider: &P,
         broadcaster: &B,
     ) -> Result<Self, EngineError> {
-        let prepared = PreparedContributionAnchor::new(
-            project_context,
-            evidence_events,
-            governance_policy,
-            snapshot,
-            network,
-        )?;
+        prepared.verify()?;
+        let network = prepared.anchor_payload.network;
         let transaction = provider.create_anchor_transaction(network, &prepared.anchor_payload)?;
         verify_anchor_transaction(&transaction, &prepared.anchor_payload)?;
         let broadcast = broadcaster.broadcast(network, &transaction)?;
@@ -545,8 +740,11 @@ impl ContributionAnchorReceipt {
         {
             return Err(EngineError::ProjectMismatch);
         }
-        self.governance_policy
-            .verify_decision(&self.snapshot.record, &self.snapshot.decision)?;
+        self.governance_policy.verify_decision(
+            &self.snapshot.record,
+            &self.snapshot.decision,
+            &self.approval_events,
+        )?;
         if self.snapshot.decision.status == DecisionStatus::Rejected
             || self.snapshot.decision.contribution_units == 0
         {
@@ -628,6 +826,21 @@ pub enum EngineError {
     /// Governance policy is internally invalid.
     #[error("invalid governance policy")]
     InvalidGovernancePolicy,
+    /// Governance intent fields violate protocol invariants.
+    #[error("invalid governance decision intent")]
+    InvalidGovernanceIntent,
+    /// A signed approval event was invalid or did not bind the exact intent.
+    #[error("invalid signed governance approval: {0}")]
+    InvalidGovernanceApproval(String),
+    /// Signed approval authors did not exactly match the persisted decision.
+    #[error("signed governance approvals do not match decision approvers")]
+    GovernanceApprovalMismatch,
+    /// Approval predates the contribution it attempts to accept.
+    #[error("governance approval predates the contribution")]
+    GovernanceApprovalBeforeContribution,
+    /// Approval was signed after the decision's approval window closed.
+    #[error("governance approval was signed after the decision timestamp")]
+    GovernanceApprovalAfterDecision,
     /// Decision contains an approver not authorized by the policy.
     #[error("decision contains an unauthorized approver")]
     UnauthorizedApprover,
@@ -689,6 +902,12 @@ fn tag_values<'a>(event: &'a Event, name: &'a str) -> impl Iterator<Item = &'a s
     })
 }
 
+fn single_tag_value<'a>(event: &'a Event, name: &'a str) -> Option<&'a str> {
+    let mut values = tag_values(event, name);
+    let value = values.next()?;
+    values.next().is_none().then_some(value)
+}
+
 fn event_digest(event: &Event) -> Result<Digest32, EngineError> {
     let bytes = hex::decode(event.id.to_hex()).map_err(|_| EngineError::InvalidEventDigest)?;
     bytes
@@ -746,6 +965,7 @@ mod tests {
         Event,
         GovernancePolicy,
         ContributionRecord,
+        Vec<Keys>,
     ) {
         let founder_a = Keys::generate();
         let founder_b = Keys::generate();
@@ -794,7 +1014,28 @@ mod tests {
                 std::slice::from_ref(&evidence_event),
             )
             .expect("record");
-        (context, evidence_event, policy, record)
+        (
+            context,
+            evidence_event,
+            policy,
+            record,
+            vec![founder_a, founder_b],
+        )
+    }
+
+    fn signed_approval(
+        intent: &GovernanceDecisionIntent,
+        founder: &Keys,
+        created_at: i64,
+    ) -> Event {
+        intent
+            .approval_event_builder()
+            .expect("approval builder")
+            .custom_created_at(nostr::Timestamp::from(
+                u64::try_from(created_at).expect("positive timestamp"),
+            ))
+            .sign_with_keys(founder)
+            .expect("sign approval")
     }
 
     struct FixtureProvider;
@@ -848,24 +1089,36 @@ mod tests {
     }
 
     fn receipt() -> ContributionAnchorReceipt {
-        let (context, event, policy, record) = fixture();
-        let decision = policy
-            .decide(
+        let (context, event, policy, record, founders) = fixture();
+        let intent = policy
+            .decision_intent(
                 &record,
                 DecisionStatus::Accepted,
                 500,
-                vec![policy.founders[0].clone()],
                 1_800_000_000,
                 "Grounded engineering contribution accepted".into(),
             )
+            .expect("intent");
+        let approvals = vec![signed_approval(
+            &intent,
+            &founders[0],
+            record.created_at + 1,
+        )];
+        let decision = policy
+            .decide(&record, &intent, &approvals)
             .expect("decision");
         let snapshot = ContributionSnapshot::new(record, decision).expect("snapshot");
-        ContributionAnchorReceipt::anchor(
+        let prepared = PreparedContributionAnchor::new(
             context,
             vec![event],
+            approvals,
             policy,
             snapshot,
             BsvNetwork::Testnet,
+        )
+        .expect("prepared");
+        ContributionAnchorReceipt::anchor(
+            prepared,
             &FixtureProvider,
             &FixtureBroadcaster {
                 calls: Mutex::new(0),
@@ -881,7 +1134,7 @@ mod tests {
 
     #[test]
     fn unrelated_signed_buzz_event_is_rejected() {
-        let (context, _event, _policy, _record) = fixture();
+        let (context, _event, _policy, _record, _founders) = fixture();
         let keys = Keys::generate();
         let unrelated = EventBuilder::new(Kind::TextNote, "unrelated")
             .tags([])
@@ -895,17 +1148,74 @@ mod tests {
 
     #[test]
     fn large_award_requires_large_threshold() {
-        let (_context, _event, policy, record) = fixture();
-        assert!(matches!(
-            policy.decide(
+        let (_context, _event, policy, record, founders) = fixture();
+        let intent = policy
+            .decision_intent(
                 &record,
                 DecisionStatus::Accepted,
                 1_000,
-                vec![policy.founders[0].clone()],
                 1_800_000_000,
                 "large award".into(),
-            ),
+            )
+            .expect("intent");
+        let approvals = vec![signed_approval(
+            &intent,
+            &founders[0],
+            record.created_at + 1,
+        )];
+        assert!(matches!(
+            policy.decide(&record, &intent, &approvals),
             Err(EngineError::InsufficientApprovals { required: 2, .. })
+        ));
+    }
+
+    #[test]
+    fn duplicate_founder_approvals_do_not_meet_large_threshold() {
+        let (_context, _event, policy, record, founders) = fixture();
+        let intent = policy
+            .decision_intent(
+                &record,
+                DecisionStatus::Accepted,
+                1_000,
+                1_800_000_000,
+                "large award".into(),
+            )
+            .expect("intent");
+        let approval = signed_approval(&intent, &founders[0], record.created_at + 1);
+        assert!(matches!(
+            policy.decide(&record, &intent, &[approval.clone(), approval]),
+            Err(EngineError::InsufficientApprovals {
+                required: 2,
+                actual: 1
+            })
+        ));
+    }
+
+    #[test]
+    fn approval_cannot_be_replayed_for_different_units() {
+        let (_context, _event, policy, record, founders) = fixture();
+        let approved_intent = policy
+            .decision_intent(
+                &record,
+                DecisionStatus::Accepted,
+                500,
+                1_800_000_000,
+                "approved amount".into(),
+            )
+            .expect("approved intent");
+        let approval = signed_approval(&approved_intent, &founders[0], record.created_at + 1);
+        let changed_intent = policy
+            .decision_intent(
+                &record,
+                DecisionStatus::Accepted,
+                501,
+                1_800_000_000,
+                "approved amount".into(),
+            )
+            .expect("changed intent");
+        assert!(matches!(
+            policy.decide(&record, &changed_intent, &[approval]),
+            Err(EngineError::InvalidGovernanceApproval(_))
         ));
     }
 
@@ -953,7 +1263,7 @@ mod tests {
 
     #[test]
     fn signed_event_tampering_is_rejected() {
-        let (context, event, _policy, _record) = fixture();
+        let (context, event, _policy, _record, _founders) = fixture();
         let mut json: serde_json::Value =
             serde_json::from_str(&event.as_json()).expect("event json");
         json["content"] = serde_json::Value::String("tampered".into());
@@ -961,6 +1271,20 @@ mod tests {
         assert!(matches!(
             context.evidence_ref(&tampered),
             Err(EngineError::InvalidBuzzEvent(_))
+        ));
+    }
+
+    #[test]
+    fn signed_governance_approval_tampering_is_rejected() {
+        let mut receipt = receipt();
+        let mut json: serde_json::Value =
+            serde_json::from_str(&receipt.approval_events[0].as_json()).expect("approval json");
+        json["content"] = serde_json::Value::String("00".repeat(32));
+        receipt.approval_events[0] =
+            Event::from_json(json.to_string()).expect("parse tampered approval");
+        assert!(matches!(
+            receipt.verify(),
+            Err(EngineError::InvalidGovernanceApproval(_))
         ));
     }
 }

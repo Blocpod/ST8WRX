@@ -1,0 +1,130 @@
+{
+  "project_event": {
+    "id": "ed221dbb1f4eeaa38926022faa2fa85990913b93f93950aab8c31e8e66903111",
+    "pubkey": "eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3",
+    "created_at": 1787526512,
+    "kind": 30621,
+    "tags": [
+      [
+        "d",
+        "st8wrx"
+      ],
+      [
+        "name",
+        "ST8WRX"
+      ],
+      [
+        "description",
+        "Build together. Prove what you created."
+      ],
+      [
+        "a",
+        "30617:cb74b7ffc46c3f57c8ca86dc35ae47a1d0a8f487edfb6d075654777147ec2901:st8wrx"
+      ],
+      [
+        "buzz-visibility",
+        "listed"
+      ]
+    ],
+    "content": "",
+    "sig": "7d115aeb4a79b8c7dde1372cef7d084786a0901eec69bba4dd787ec7f334984bb57a10eeb58d1b22f5c6a39a5166a2bb644a8abf5504faf606c2f53afd1114b8"
+  },
+  "evidence_events": [
+    {
+      "id": "3957080d5239746700851362e02e611e6a41a62f8409902e8b559898ec4047ef",
+      "pubkey": "cb74b7ffc46c3f57c8ca86dc35ae47a1d0a8f487edfb6d075654777147ec2901",
+      "created_at": 1787526513,
+      "kind": 1617,
+      "tags": [
+        [
+          "a",
+          "30617:cb74b7ffc46c3f57c8ca86dc35ae47a1d0a8f487edfb6d075654777147ec2901:st8wrx"
+        ],
+        [
+          "commit",
+          "789f66d370f58a4910d43dc50c8e73e4c8bb5c6b"
+        ],
+        [
+          "url",
+          "https://github.com/Blocpod/ST8WRX"
+        ]
+      ],
+      "content": "Established the independent ST8WRX contribution and BSV provenance foundation at Git commit 789f66d370f58a4910d43dc50c8e73e4c8bb5c6b.",
+      "sig": "bc302d1b7b7e1bc4f52d0bba55a52ffc903f1ed01e2b58425c2c579fbb2c96dfa81c8a9cd746f653ac93e0bf684608141a3049429d41bb4c0a0edc833d7258da"
+    }
+  ],
+  "governance_policy": {
+    "project": "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx",
+    "version": "milestone-1-founders-v1",
+    "founders": [
+      "nostr:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3",
+      "nostr:65bf828af6556ce538de664216615cfc13bbdeee51abc2af5a634ff14aea94c1"
+    ],
+    "normal_threshold": 1,
+    "large_threshold": 2,
+    "large_unit_threshold": 1000
+  },
+  "contributor": "nostr:cb74b7ffc46c3f57c8ca86dc35ae47a1d0a8f487edfb6d075654777147ec2901",
+  "contributor_kind": "Human",
+  "class": "Engineering",
+  "created_at": 1787526513,
+  "summary": "Independent ST8WRX protocol foundation at Git commit 789f66d370f58a4910d43dc50c8e73e4c8bb5c6b",
+  "status": "Accepted",
+  "contribution_units": 1000,
+  "approval_events": [
+    {
+      "id": "b7bb8bc04179b7b4407370f538a0e06ca4496c4fca321c4046c48e87ee69fc17",
+      "pubkey": "eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3",
+      "created_at": 1787526542,
+      "kind": 49800,
+      "tags": [
+        [
+          "a",
+          "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx"
+        ],
+        [
+          "e",
+          "ada2ce7479748cb4eb931e874e05264ecc2cbab841334e250d6ad15a4c5463c9"
+        ],
+        [
+          "st8-policy",
+          "milestone-1-founders-v1"
+        ],
+        [
+          "st8-decision",
+          "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980"
+        ]
+      ],
+      "content": "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980",
+      "sig": "78039eaf86a67a6244f89679e947c4493a0bf9a07d5c29b54d441528c8e100352eced9a10155d23df4a6f750a2de5fa9715cca02ed6f606755d2bf325a2aa109"
+    },
+    {
+      "id": "5e294dc059f1c25edfe27583d61d4beac1bd421c7f934a9f39a4be6aa6ce1616",
+      "pubkey": "65bf828af6556ce538de664216615cfc13bbdeee51abc2af5a634ff14aea94c1",
+      "created_at": 1787526543,
+      "kind": 49800,
+      "tags": [
+        [
+          "a",
+          "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx"
+        ],
+        [
+          "e",
+          "ada2ce7479748cb4eb931e874e05264ecc2cbab841334e250d6ad15a4c5463c9"
+        ],
+        [
+          "st8-policy",
+          "milestone-1-founders-v1"
+        ],
+        [
+          "st8-decision",
+          "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980"
+        ]
+      ],
+      "content": "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980",
+      "sig": "768081fbb8e844373c4af9e1d721dace50923097990b38224793af270705e9a16b7b22955be75821960912e47a8737ab4993028ba02526a7a8c36406d708ac67"
+    }
+  ],
+  "decided_at": 1787526572,
+  "rationale": "Two project founders accepted the grounded engineering contribution."
+}

@@ -14,7 +14,7 @@ Buzz signed activity
 Evidence grounding -----> ContributionRecord
                                 |
                                 v
-Impact recommendation --> Project governance decision
+Impact recommendation --> Signed project approvals --> governance decision
                                 |
                                 v
                      Contribution Units + snapshot
@@ -69,12 +69,15 @@ No private key crosses those boundaries.
 
 ### `st8-contribution-engine`
 
-I/O integration layer. It retains the full signed NIP-MP project event and full
-signed evidence events so a later verifier can reconstruct evidence references,
-project membership, and contributor identity. It applies an explicit founder
-threshold policy, preserves the original record even when decisions change,
-builds one deterministic project snapshot, and atomically persists the final
-receipt.
+I/O integration layer. It retains the full signed NIP-MP project event, signed
+evidence, and signed approval events so a later verifier can reconstruct
+evidence references, project membership, contributor identity, and project
+authority. Every approver is derived from a verified Nostr signature over a
+domain-separated decision intent. It applies an explicit founder threshold
+policy, preserves the original record even when decisions change, builds one
+deterministic project snapshot, and atomically persists the final receipt. An
+approval cannot be replayed after the CU amount, status, rationale, policy,
+contribution, or project changes.
 
 ## On-chain data policy
 
@@ -91,7 +94,7 @@ The V1 receipt verifies:
 1. Nostr IDs and Schnorr signatures of the project and evidence events;
 2. evidence membership in the signed NIP-MP project or one of its repositories;
 3. deterministic contribution identity and project-bound governance decision;
-4. the non-zero CU award and approval threshold;
+4. signed project-authority approvals, the non-zero CU award, and threshold;
 5. canonical snapshot state;
 6. project-scoped Merkle inclusion;
 7. exact `OP_FALSE OP_RETURN` payload in the raw BSV transaction;

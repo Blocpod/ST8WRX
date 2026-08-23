@@ -6,8 +6,10 @@
 - [x] Preserve imported Buzz collaboration source and extension seams.
 - [x] Deterministic contribution protocol tests.
 - [x] Project-scoped BSV commitment and Merkle proof tests.
-- [x] Real signed Buzz/NIP-MP + NIP-34 evidence grounding.
-- [x] Explicit project governance decision and CU award.
+- [x] Real signed Buzz/NIP-MP + NIP-34 evidence grounding tied to foundation
+  commit `789f66d370f58a4910d43dc50c8e73e4c8bb5c6b`.
+- [x] Explicit project governance decision with two independently signed founder
+  approvals and a 1,000-CU award.
 - [x] Deterministic contribution snapshot.
 - [x] Wallet-ready BSV testnet anchor payload.
 - [ ] Live funded BSV testnet transaction created and broadcast.
@@ -16,6 +18,10 @@
   tampering tests.
 - [x] Architecture, upstream audit, BSV tooling, attribution, and handoff docs.
 - [x] No inherited publishing workflow remains active.
+
+The signed public proposal, decision intent, and wallet-ready prepared anchor
+are preserved under [`milestone-1/`](milestone-1/README.md). The unchecked live
+broadcast item is the only exit criterion requiring external funded authority.
 
 ## Focused validation
 

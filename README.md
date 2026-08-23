@@ -22,10 +22,10 @@ the first isolated ST8WRX protocol slice:
   batching and proofs, BSV anchor payloads, raw-transaction commitment checks,
   and wallet/broadcaster abstractions.
 - `st8-contribution-engine` — signed Buzz/NIP-MP evidence grounding,
-  configurable founder approvals, CU awards, persisted receipts, and independent
-  end-to-end verification.
-- `st8wrx-contribution` — prepare/finalize/verify CLI for the BRC-100 wallet and
-  ARC boundary.
+  cryptographically signed founder approvals, CU awards, persisted receipts,
+  and independent end-to-end verification.
+- `st8wrx-contribution` — governance-intent, prepare, finalize, and verify CLI
+  for the BRC-100 wallet and ARC boundary.
 
 The protocol implementation does not put blockchain calls in Buzz's synchronous
 collaboration path and does not hold wallet secrets.
@@ -72,23 +72,34 @@ operational compatibility.
 The first live slice deliberately separates ST8WRX from wallet custody:
 
 ```bash
-# 1. Verify signed Buzz evidence and emit the exact testnet locking script.
+# 1. Verify signed Buzz evidence and emit the exact decision founders sign.
+cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
+  intent --input proposal.json --output intent.json
+
+# 2. Sign the emitted Nostr event template with the required independent
+#    project authorities and add the full events to proposal.approval_events.
+
+# 3. Verify the signatures and emit the exact testnet locking script.
 cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
   prepare --input proposal.json --output prepared.json
 
-# 2. Ask a BRC-100 wallet to create/sign with noSend, then broadcast through ARC.
+# 4. Ask a BRC-100 wallet to create/sign with noSend, then broadcast through ARC.
 #    Store the raw transaction, optional Atomic BEEF, output index, and ARC result
 #    in external-result.json. No private key is passed to ST8WRX.
 
-# 3. Bind and persist the independently verified receipt.
+# 5. Bind and persist the independently verified receipt.
 cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
   finalize --prepared prepared.json --result external-result.json \
   --output receipt.json
 
-# 4. Verify later without trusting the original process.
+# 6. Verify later without trusting the original process.
 cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
   verify --receipt receipt.json
 ```
+
+The checked-in [Milestone 1 handoff](docs/st8wrx/milestone-1/README.md) grounds
+the first 1,000-CU contribution in the independent repository foundation commit
+and includes its signed two-founder approvals and wallet-ready testnet script.
 
 See [BSV tooling](docs/st8wrx/BSV-TOOLING.md) for current standards and the
 JSON contracts.

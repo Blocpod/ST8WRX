@@ -1,0 +1,67 @@
+{
+  "intent": {
+    "contribution_id": [
+      173,
+      162,
+      206,
+      116,
+      121,
+      116,
+      140,
+      180,
+      235,
+      147,
+      30,
+      135,
+      78,
+      5,
+      38,
+      78,
+      204,
+      44,
+      186,
+      184,
+      65,
+      51,
+      78,
+      37,
+      13,
+      106,
+      209,
+      90,
+      76,
+      84,
+      99,
+      201
+    ],
+    "project": "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx",
+    "status": "Accepted",
+    "contribution_units": 1000,
+    "policy_version": "milestone-1-founders-v1",
+    "decided_at": 1787526572,
+    "rationale": "Two project founders accepted the grounded engineering contribution."
+  },
+  "digest_hex": "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980",
+  "approval_event": {
+    "kind": 49800,
+    "content": "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980",
+    "tags": [
+      [
+        "a",
+        "30621:eaa1ea8be63d7be5f9ba991aa3fea419305f4cea785da04bef652ba5984b0db3:st8wrx"
+      ],
+      [
+        "e",
+        "ada2ce7479748cb4eb931e874e05264ecc2cbab841334e250d6ad15a4c5463c9"
+      ],
+      [
+        "st8-policy",
+        "milestone-1-founders-v1"
+      ],
+      [
+        "st8-decision",
+        "5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980"
+      ]
+    ]
+  }
+}
