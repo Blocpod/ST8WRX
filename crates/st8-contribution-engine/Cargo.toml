@@ -1,0 +1,31 @@
+[package]
+name = "st8-contribution-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Buzz evidence to contribution governance and BSV anchor receipt vertical slice"
+
+[dependencies]
+buzz-core = { workspace = true }
+buzz-sdk = { workspace = true }
+hex = { workspace = true }
+nostr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+st8-bsv-provenance = { workspace = true }
+st8-contribution-protocol = { workspace = true }
+thiserror = { workspace = true }
+
+[[bin]]
+name = "st8wrx-contribution"
+path = "src/bin/st8wrx-contribution.rs"
+
+[dependencies.clap]
+version = "4"
+features = ["derive"]
+
+[dev-dependencies]
+tempfile = "3"

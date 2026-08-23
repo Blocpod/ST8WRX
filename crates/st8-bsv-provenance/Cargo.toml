@@ -1,0 +1,16 @@
+[package]
+name = "st8-bsv-provenance"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Project-scoped BSV commitment and Merkle proof primitives for ST8WRX"
+
+[dependencies]
+serde = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
