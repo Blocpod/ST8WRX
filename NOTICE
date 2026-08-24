@@ -8,3 +8,8 @@ under the Apache License, Version 2.0.
 ST8WRX is an independent project and is not affiliated with or endorsed by
 Block, Inc. The Buzz name and any related marks remain the property of their
 respective owners.
+
+The BSV-only `st8-anchor-worker` component includes the official Rust BSV SDK:
+© BSV Association. It is licensed under Open BSV License Version 5 and may only
+be used on BSV Blockchains. The complete license is reproduced at
+licenses/Open-BSV-License-v5.txt.

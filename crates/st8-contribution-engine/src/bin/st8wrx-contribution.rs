@@ -1,11 +1,12 @@
 #![deny(unsafe_code)]
 
+use buzz_core::kind::KIND_ST8_GOVERNANCE_APPROVAL;
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use st8_bsv_provenance::{transaction_id, BroadcastReceipt, SignedAnchorTransaction};
 use st8_contribution_engine::{
     ContributionAnchorReceipt, ContributionProposal, GovernanceDecisionIntent,
-    PreparedContributionAnchor, KIND_ST8_GOVERNANCE_APPROVAL,
+    PreparedContributionAnchor,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -100,11 +101,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let intent = proposal.governance_intent()?;
             let digest_hex = hex::encode(intent.digest()?);
             let approval_event = ApprovalEventTemplate {
-                kind: KIND_ST8_GOVERNANCE_APPROVAL,
+                kind: KIND_ST8_GOVERNANCE_APPROVAL as u16,
                 content: digest_hex.clone(),
                 tags: vec![
                     vec!["a".into(), intent.project.clone()],
-                    vec!["e".into(), hex::encode(intent.contribution_id)],
+                    vec![
+                        "st8-contribution".into(),
+                        hex::encode(intent.contribution_id),
+                    ],
                     vec!["st8-policy".into(), intent.policy_version.clone()],
                     vec!["st8-decision".into(), digest_hex.clone()],
                 ],

@@ -43,6 +43,8 @@ chrono = { workspace = true }
 
 # Typed event builders for all write operations
 buzz-sdk = { workspace = true }
+st8-contribution-engine = { workspace = true }
+st8-contribution-protocol = { workspace = true }
 buzz-core = { workspace = true }
 
 # Base64 encoding — NIP-98 event serialization for Authorization header

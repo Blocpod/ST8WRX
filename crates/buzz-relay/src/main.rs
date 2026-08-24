@@ -546,6 +546,59 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    // Contribution approvals are the durable event log; the ledger projection
+    // is recoverable. Replay once before serving traffic and periodically so a
+    // crash or transient projection failure never strands accepted work.
+    match buzz_relay::handlers::contribution::reconcile_stored_approvals(&state).await {
+        Ok(count) if count > 0 => info!(count, "ST8 contribution decisions reconciled"),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(%error, "ST8 contribution startup reconciliation failed"),
+    }
+    match buzz_relay::handlers::contribution::reconcile_ledger_events(&state).await {
+        Ok(count) if count > 0 => info!(count, "ST8 ledger events reconciled"),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(%error, "ST8 ledger event startup reconciliation failed"),
+    }
+    {
+        let reconcile_state = Arc::clone(&state);
+        let interval_secs = std::env::var("ST8_CONTRIBUTION_RECONCILE_INTERVAL_SECS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(30)
+            .max(1);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
+            interval.tick().await;
+            loop {
+                interval.tick().await;
+                match buzz_relay::handlers::contribution::reconcile_stored_approvals(
+                    &reconcile_state,
+                )
+                .await
+                {
+                    Ok(count) if count > 0 => {
+                        info!(count, "ST8 contribution decisions reconciled")
+                    }
+                    Ok(_) => {}
+                    Err(error) => tracing::warn!(
+                        %error,
+                        "periodic ST8 contribution reconciliation failed"
+                    ),
+                }
+                match buzz_relay::handlers::contribution::reconcile_ledger_events(&reconcile_state)
+                    .await
+                {
+                    Ok(count) if count > 0 => info!(count, "ST8 ledger events reconciled"),
+                    Ok(_) => {}
+                    Err(error) => tracing::warn!(
+                        %error,
+                        "periodic ST8 ledger event reconciliation failed"
+                    ),
+                }
+            }
+        });
+    }
+
     // Repair legacy NIP-29 channel rosters that were persisted while the
     // canonical member query still truncated at 1,000 rows. Validation above
     // makes migration 0032 a code/schema compatibility gate before the new
