@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use buzz_core::kind::{
     KIND_PROJECT, KIND_ST8_CONTRIBUTION_CLAIM, KIND_ST8_DECISION_PROPOSAL,
-    KIND_ST8_GOVERNANCE_POLICY, KIND_ST8_LEDGER_ENTRY,
+    KIND_ST8_GOVERNANCE_POLICY, KIND_ST8_LEDGER_ENTRY, P_GATED_KINDS,
 };
 use nostr::{Event, Timestamp};
 use st8_contribution_engine::{
@@ -362,7 +362,10 @@ async fn fetch_events(client: &BuzzClient, event_ids: &[String]) -> Result<Vec<E
         }
     }
     let ids: Vec<&str> = expected.iter().map(String::as_str).collect();
-    let kinds = buzz_core::kind::ALL_KINDS;
+    // Contribution receipts are public verification artifacts. Private
+    // recipient-gated events are therefore not eligible evidence, and naming
+    // them in this exact-ID query would also trigger the relay's filter gate.
+    let kinds = public_evidence_kinds();
     let filter = serde_json::json!({
         "ids": ids,
         "kinds": kinds,
@@ -380,6 +383,14 @@ async fn fetch_events(client: &BuzzClient, event_ids: &[String]) -> Result<Vec<E
     }
     events.sort_by_key(|event| event.id.to_hex());
     Ok(events)
+}
+
+fn public_evidence_kinds() -> Vec<u32> {
+    buzz_core::kind::ALL_KINDS
+        .iter()
+        .copied()
+        .filter(|kind| !P_GATED_KINDS.contains(kind))
+        .collect()
 }
 
 fn parse_events(raw: &str) -> Result<Vec<Event>, CliError> {
@@ -428,4 +439,18 @@ fn tag_values<'a>(event: &'a Event, name: &'a str) -> impl Iterator<Item = &'a s
 
 fn engine_error(error: impl std::fmt::Display) -> CliError {
     CliError::Usage(error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::public_evidence_kinds;
+    use buzz_core::kind::{ALL_KINDS, P_GATED_KINDS};
+
+    #[test]
+    fn public_contribution_evidence_query_excludes_private_kinds() {
+        let kinds = public_evidence_kinds();
+        assert!(!kinds.is_empty());
+        assert!(kinds.iter().all(|kind| !P_GATED_KINDS.contains(kind)));
+        assert_eq!(kinds.len(), ALL_KINDS.len() - P_GATED_KINDS.len());
+    }
 }
