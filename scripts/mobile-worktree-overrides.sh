@@ -16,7 +16,7 @@
 # profile builds never read these overrides.
 #
 # Android-only test builds can opt into a more explicit side-by-side identity:
-#   BUZZ_ANDROID_DEBUG_APP_NAME="Buzz Huddles"
+#   BUZZ_ANDROID_DEBUG_APP_NAME="ST8WRX Huddles"
 #   BUZZ_ANDROID_DEBUG_ID_SUFFIX=".huddles_829c"
 # Both values are validated before the generated properties file is written.
 set -euo pipefail
@@ -76,7 +76,7 @@ case "$android_slug" in
 esac
 
 ios_bundle_id="com.buzz.buzzMobile.${ios_slug}"
-android_app_name="${BUZZ_ANDROID_DEBUG_APP_NAME:-Buzz (${label})}"
+android_app_name="${BUZZ_ANDROID_DEBUG_APP_NAME:-ST8WRX (${label})}"
 android_suffix="${BUZZ_ANDROID_DEBUG_ID_SUFFIX:-.${android_slug}}"
 
 if [[ "$android_app_name" == *$'\n'* || "$android_app_name" == *$'\r'* ]] || \
@@ -94,7 +94,7 @@ cat > "$ios_overrides" <<XCCONFIG
 // Applies to Debug builds only (included from Flutter/Debug.xcconfig before
 // AppOverrides.xcconfig, so a developer's app-specific overrides win).
 BUNDLE_IDENTIFIER = ${ios_bundle_id}
-APP_DISPLAY_NAME = Buzz (${label})
+APP_DISPLAY_NAME = ST8WRX (${label})
 XCCONFIG
 
 cat > "$android_props" <<PROPERTIES
