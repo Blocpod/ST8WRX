@@ -179,7 +179,7 @@ test("add-community deep link opens one editable prefill and acknowledges the qu
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: "Join an existing community" }),
+    page.getByRole("heading", { name: "Connect to a community" }),
   ).toBeVisible();
   const communityInput = page.getByLabel("Community URL or invite link");
   await expect(communityInput).toHaveValue(PENDING_ADD_COMMUNITY_LINK.relayUrl);
@@ -187,7 +187,7 @@ test("add-community deep link opens one editable prefill and acknowledges the qu
 
   await page.getByRole("button", { name: "Close" }).click();
   await expect(
-    page.getByRole("heading", { name: "Join an existing community" }),
+    page.getByRole("heading", { name: "Connect to a community" }),
   ).toHaveCount(0);
 
   await page.getByTestId("sidebar-profile-avatar-button").click();
@@ -302,7 +302,7 @@ test("deleted public starter channels do not strand community onboarding", async
   );
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Take me to Buzz" }).click();
+  await page.getByRole("button", { name: "Take me to ST8WRX" }).click();
 
   await expect(page.getByTestId("community-onboarding-flow")).toHaveCount(0);
   await expect(page).toHaveURL(/#\/channels\/[^/]+$/);
@@ -357,12 +357,12 @@ test("required Welcome creation failure keeps community onboarding open", async 
   );
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Take me to Buzz" }).click();
+  await page.getByRole("button", { name: "Take me to ST8WRX" }).click();
 
   await expect(page.getByTestId("community-onboarding-flow")).toBeVisible();
   await expect(page.getByText(`${welcomeError} Try again.`)).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Take me to Buzz" }),
+    page.getByRole("button", { name: "Take me to ST8WRX" }),
   ).toBeEnabled();
   await expect(page.getByTestId("chat-title")).toHaveCount(0);
 });
