@@ -21,12 +21,21 @@ governance identities.
 - Project snapshot: `f479b7f36b507115cc64cd1b0a5be3bf9fd845b8cd87bba8e6c86506365e3d66`
 - Merkle root: `bb9eef492e23269efea4ead5ac4d3f2f759a2b82a87dad2100cee15483080af8`
 - BSV testnet txid: `732609ae6ea8df7883a2229a5af9ab8b32316e7101c108a93c962668aa4538b9`
-- Verification: `seen_on_testnet`
+- Mined block: `1754486` / `0000000000c046761bce820232597af48e915d011a3e3cd4bf6bd78b06f00224`
+- Verification: `mined_spv_verified`
 
 ## Verify
 
 ```bash
 target/debug/st8-anchor-worker verify \
+  --receipt docs/st8wrx/milestone-1/live-receipt.json
+```
+
+An existing public receipt can be upgraded after confirmation without wallet
+access:
+
+```bash
+target/debug/st8-anchor-worker refresh-receipt \
   --receipt docs/st8wrx/milestone-1/live-receipt.json
 ```
 

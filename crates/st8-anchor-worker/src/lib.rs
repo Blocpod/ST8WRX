@@ -142,7 +142,7 @@ impl PersistedContributionReceipt {
 
 /// HTTP clients and endpoints for one anchor worker.
 pub struct AnchorServices {
-    wallet: HttpWalletJson,
+    wallet: Option<HttpWalletJson>,
     client: Client,
     arc_url: String,
     woc_url: String,
@@ -151,18 +151,25 @@ pub struct AnchorServices {
 impl AnchorServices {
     /// Creates services using an external BRC-100 wallet and public testnet endpoints.
     pub fn new(wallet_url: &str, arc_url: &str, woc_url: &str) -> anyhow::Result<Self> {
-        if wallet_url.trim().is_empty()
-            || !arc_url.starts_with("https://")
-            || !woc_url.starts_with("https://")
-        {
-            return Err(anyhow!("wallet and HTTPS network endpoints are required"));
+        if wallet_url.trim().is_empty() {
+            return Err(anyhow!("wallet endpoint is required"));
+        }
+        let mut services = Self::new_network_only(arc_url, woc_url)?;
+        services.wallet = Some(HttpWalletJson::new("st8wrx.network", wallet_url));
+        Ok(services)
+    }
+
+    /// Creates public-network-only services for refreshing or verifying a signed receipt.
+    pub fn new_network_only(arc_url: &str, woc_url: &str) -> anyhow::Result<Self> {
+        if !arc_url.starts_with("https://") || !woc_url.starts_with("https://") {
+            return Err(anyhow!("HTTPS network endpoints are required"));
         }
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .user_agent("ST8WRX-Milestone1/1")
             .build()?;
         Ok(Self {
-            wallet: HttpWalletJson::new("st8wrx.network", wallet_url),
+            wallet: None,
             client,
             arc_url: arc_url.trim_end_matches('/').to_owned(),
             woc_url: woc_url.trim_end_matches('/').to_owned(),
@@ -184,8 +191,11 @@ impl AnchorServices {
         if prepared.anchor_payload.network != BsvNetwork::Testnet {
             return Err(anyhow!("Milestone 1 wallet request must target testnet"));
         }
-        let wallet_network = self
+        let wallet = self
             .wallet
+            .as_ref()
+            .context("external wallet is unavailable in network-only mode")?;
+        let wallet_network = wallet
             .get_network(Some("st8wrx.network"))
             .await
             .context("external BRC-100 wallet getNetwork failed")?;
@@ -193,8 +203,7 @@ impl AnchorServices {
             return Err(anyhow!("external wallet is not configured for BSV testnet"));
         }
         let locking_script = prepared.anchor_payload.locking_script()?;
-        let result = self
-            .wallet
+        let result = wallet
             .create_action(
                 CreateActionArgs {
                     description: "Anchor ST8WRX project snapshot".into(),
@@ -787,5 +796,13 @@ mod tests {
         assert_eq!(options.accept_delayed_broadcast.0, Some(false));
         assert_eq!(options.no_send.0, Some(false));
         assert_eq!(options.return_txid_only.0, Some(false));
+    }
+
+    #[test]
+    fn network_only_services_do_not_expose_a_wallet() {
+        let services =
+            AnchorServices::new_network_only(DEFAULT_ARC_TESTNET_URL, DEFAULT_WOC_TESTNET_URL)
+                .expect("network services");
+        assert!(services.wallet.is_none());
     }
 }

@@ -52,6 +52,24 @@ enum Command {
         #[arg(long)]
         receipt: PathBuf,
     },
+    /// Refreshes public network proof for an existing receipt without wallet access.
+    RefreshReceipt {
+        /// Persisted receipt JSON to refresh in place.
+        #[arg(long)]
+        receipt: PathBuf,
+        /// Testnet ARC base URL.
+        #[arg(long, default_value = DEFAULT_ARC_TESTNET_URL)]
+        arc_url: String,
+        /// Independent WhatsOnChain testnet API base URL.
+        #[arg(long, default_value = DEFAULT_WOC_TESTNET_URL)]
+        woc_url: String,
+        /// Require mined BUMP/header evidence before updating the receipt.
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+        require_mined: bool,
+        /// Maximum seconds to wait for the requested network state.
+        #[arg(long, default_value_t = 900)]
+        observation_timeout_secs: u64,
+    },
 }
 
 #[tokio::main]
@@ -72,6 +90,33 @@ async fn run() -> anyhow::Result<()> {
                 "verified txid={} state={}",
                 hex::encode(receipt.contribution.transaction.txid),
                 receipt.network.verification_state
+            );
+        }
+        Command::RefreshReceipt {
+            receipt,
+            arc_url,
+            woc_url,
+            require_mined,
+            observation_timeout_secs,
+        } => {
+            let mut persisted: PersistedContributionReceipt =
+                serde_json::from_slice(&std::fs::read(&receipt)?)?;
+            persisted.verify()?;
+            let services = AnchorServices::new_network_only(&arc_url, &woc_url)?;
+            let timeout = Duration::from_secs(observation_timeout_secs.clamp(30, 3_600));
+            persisted.network = services
+                .observe(
+                    &persisted.contribution.transaction,
+                    persisted.network.arc_submission.clone(),
+                    require_mined,
+                    timeout,
+                )
+                .await?;
+            persist_receipt(&receipt, &persisted)?;
+            println!(
+                "refreshed txid={} state={}",
+                hex::encode(persisted.contribution.transaction.txid),
+                persisted.network.verification_state
             );
         }
         Command::RunOnce {
