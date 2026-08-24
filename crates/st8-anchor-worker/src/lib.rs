@@ -169,7 +169,13 @@ impl AnchorServices {
         })
     }
 
-    /// Asks the external wallet to fund and sign, but not broadcast, the exact anchor.
+    /// Asks the external wallet to fund, sign, and synchronously broadcast the exact anchor.
+    ///
+    /// The wallet must process its own spend rather than returning a `noSend`
+    /// action. Otherwise an external broadcast can leave the wallet's durable
+    /// UTXO state unaware of the spend, allowing the same input to be selected
+    /// again after a restart. The worker still independently submits/observes
+    /// the returned bytes and persists the public network proof.
     pub async fn create_signed_transaction(
         &self,
         prepared: &PreparedContributionAnchor,
@@ -205,20 +211,7 @@ impl AnchorServices {
                     lock_time: None,
                     version: None,
                     labels: vec!["st8wrx-milestone-1".into()],
-                    options: Some(CreateActionOptions {
-                        // Leave the default implicit: external wallets reserve an explicit
-                        // `true` for their administrative originator, while still defaulting
-                        // ordinary application requests to wallet-managed signing.
-                        sign_and_process: BooleanDefaultTrue(None),
-                        accept_delayed_broadcast: BooleanDefaultTrue(Some(false)),
-                        trust_self: None,
-                        known_txids: Vec::new(),
-                        return_txid_only: BooleanDefaultFalse(Some(false)),
-                        no_send: BooleanDefaultFalse(Some(true)),
-                        no_send_change: Vec::new(),
-                        send_with: Vec::new(),
-                        randomize_outputs: BooleanDefaultTrue(Some(false)),
-                    }),
+                    options: Some(wallet_action_options()),
                     reference: Some(format!(
                         "st8wrx:{}",
                         hex::encode(prepared.project_snapshot.id()?)
@@ -440,6 +433,26 @@ impl AnchorServices {
             arc_error,
             Value::String(response_text),
         ))
+    }
+}
+
+fn wallet_action_options() -> CreateActionOptions {
+    CreateActionOptions {
+        // Leave the default implicit: external wallets reserve an explicit
+        // `true` for their administrative originator, while still defaulting
+        // ordinary application requests to wallet-managed signing.
+        sign_and_process: BooleanDefaultTrue(None),
+        // A synchronous wallet broadcast both surfaces rejection immediately
+        // and durably retires the selected wallet inputs before this call
+        // returns. The worker then independently observes the same bytes.
+        accept_delayed_broadcast: BooleanDefaultTrue(Some(false)),
+        trust_self: None,
+        known_txids: Vec::new(),
+        return_txid_only: BooleanDefaultFalse(Some(false)),
+        no_send: BooleanDefaultFalse(Some(false)),
+        no_send_change: Vec::new(),
+        send_with: Vec::new(),
+        randomize_outputs: BooleanDefaultTrue(Some(false)),
     }
 }
 
@@ -765,5 +778,14 @@ mod tests {
     #[test]
     fn malformed_header_digest_is_rejected() {
         assert!(display_hash_wire_bytes("abcd").is_err());
+    }
+
+    #[test]
+    fn wallet_action_is_synchronously_processed_not_left_as_no_send() {
+        let options = wallet_action_options();
+        assert_eq!(options.sign_and_process.0, None);
+        assert_eq!(options.accept_delayed_broadcast.0, Some(false));
+        assert_eq!(options.no_send.0, Some(false));
+        assert_eq!(options.return_txid_only.0, Some(false));
     }
 }

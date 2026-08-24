@@ -37,7 +37,7 @@ enum Command {
         #[arg(long, default_value = DEFAULT_WOC_TESTNET_URL)]
         woc_url: String,
         /// Require mined BUMP/header evidence before completing the job.
-        #[arg(long, default_value_t = true)]
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
         require_mined: bool,
         /// Maximum seconds to wait for network/mined observation.
         #[arg(long, default_value_t = 900)]

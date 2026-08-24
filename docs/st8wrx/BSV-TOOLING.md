@@ -21,13 +21,15 @@ Validated against the live Milestone 1 testnet anchor on 2026-08-24.
 the external wallet reports `testnet`, and calls `createAction` with:
 
 - one zero-satoshi output containing the exact ST8WRX locking script;
-- `noSend: true` so ST8WRX controls asynchronous provider retry without key
-  custody;
+- synchronous wallet processing so selected inputs are durably retired before
+  the call returns;
 - deterministic output ordering for verifiable commitment location; and
 - wallet-managed input selection, signing, change, and fee payment.
 
-The worker persists txid, raw bytes, and Atomic BEEF before any broadcast. A
-retry resumes those exact bytes and cannot create a second wallet spend.
+The wallet broadcasts without exposing keys. The worker immediately verifies
+the exact commitment and persists txid, raw bytes, and Atomic BEEF before its
+independent provider submission/observation. A retry resumes those exact bytes
+and cannot create a second wallet spend.
 
 ## Broadcast and proof providers
 
@@ -39,9 +41,10 @@ therefore falls back to WhatsOnChain's documented small-scale
 After broadcast, completion requires independent WhatsOnChain reads of:
 
 - the exact raw transaction;
-- decoded transaction details and testnet block assignment;
-- mined BEEF/BUMP; and
-- block fields used to recompute the Merkle root and 80-byte header hash.
+- decoded transaction details and current testnet state.
+
+When the transaction is mined, the worker additionally persists mined BEEF/BUMP
+and block fields used to recompute the Merkle root and 80-byte header hash.
 
 The receipt verifier is offline: it consumes persisted public proof material,
 not a wallet, API credential, or trusted database connection.

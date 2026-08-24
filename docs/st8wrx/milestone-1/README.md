@@ -13,16 +13,15 @@ governance identities.
 
 - Project: `30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1`
 - Contributor: `nostr:b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1`
-- Contribution: `18f2ef177e93c5e51035de80b50b93e11a482fad8dca92c4b5692f3ebf629e9d`
+- Contribution: `b6376bc04df9d0c4cc9bc81e506b32a004199e4f226f62515149a23f9fdc5ade`
 - Contribution Units: `1000`
 - Approver 1: `nostr:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41`
 - Approver 2: `nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06`
-- Contribution snapshot: `9eca155f7430abe34cd149c2519215fe3092c7feab5c1da863de6f72f6e63943`
-- Project snapshot: `e91b26a0532985937300f2b17ab0ff9f320a5560959e9e733944b8db997f929f`
-- Merkle root: `b916db8a3f566df63afdd981eb3031503f6205e9cf3222aa5e70c8deca584b2c`
-- BSV testnet txid: `37ad82e23016d2faf45d9ca464025c9ca99c7e6ddf0e09de796e544c67970fff`
-- Block height: `1754464`
-- Verification: `mined_spv_verified`
+- Contribution snapshot: `df3a494c86739f3ef3a319f1b772432f3683fd014cb7bfebc11ea3609ec5f72`
+- Project snapshot: `f479b7f36b507115cc64cd1b0a5be3bf9fd845b8cd87bba8e6c86506365e3d66`
+- Merkle root: `bb9eef492e23269efea4ead5ac4d3f2f759a2b82a87dad2100cee15483080af8`
+- BSV testnet txid: `732609ae6ea8df7883a2229a5af9ab8b32316e7101c108a93c962668aa4538b9`
+- Verification: `seen_on_testnet`
 
 ## Verify
 
@@ -33,4 +32,4 @@ target/debug/st8-anchor-worker verify \
 
 The verifier rejects altered project scope, forged approvals, changed CU or
 snapshot state, invalid Merkle siblings/root, changed raw transaction bytes,
-txid substitution, altered commitment payload, and forged mined BEEF/BUMP.
+txid substitution, altered commitment payload, and inconsistent network state.
