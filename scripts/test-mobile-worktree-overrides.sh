@@ -67,13 +67,13 @@ android="$wt/mobile/android/worktree.properties"
 grep -q '^BUNDLE_IDENTIFIER = com\.buzz\.buzzMobile\.feature-work-1$' "$ios" \
   && pass "iOS bundle identifier keys to the sanitized worktree directory name" \
   || fail "iOS bundle identifier must key to the worktree dir, got: $(cat "$ios")"
-grep -q '^APP_DISPLAY_NAME = Buzz (Fix_Thing-2)$' "$ios" \
+grep -q '^APP_DISPLAY_NAME = ST8WRX (Fix_Thing-2)$' "$ios" \
   && pass "iOS display name carries the branch label" \
   || fail "iOS display name wrong: $(cat "$ios")"
 grep -q '^label=Fix_Thing-2$' "$android" \
   && pass "Android label carries the branch label" \
   || fail "Android label wrong: $(cat "$android")"
-grep -q '^appName=Buzz (Fix_Thing-2)$' "$android" \
+grep -q '^appName=ST8WRX (Fix_Thing-2)$' "$android" \
   && pass "Android app name defaults to the branch-labelled name" \
   || fail "Android app name wrong: $(cat "$android")"
 grep -q '^applicationIdSuffix=\.feature_work_1$' "$android" \
@@ -100,7 +100,7 @@ git -C "$wt" checkout -q -b "it's-\$a\"branch"
 grep -q "^label=it-s-a-branch$" "$android" \
   && pass "apostrophes and shell metacharacters are sanitized out of the label" \
   || fail "label must sanitize special chars, got: $(cat "$android")"
-grep -Eq "^APP_DISPLAY_NAME = Buzz \([A-Za-z0-9._-]+\)$" "$ios" \
+grep -Eq "^APP_DISPLAY_NAME = ST8WRX \([A-Za-z0-9._-]+\)$" "$ios" \
   && pass "iOS display name only contains resource-safe characters" \
   || fail "iOS display name has unsafe characters: $(cat "$ios")"
 
@@ -124,17 +124,17 @@ grep -q '^applicationIdSuffix=\.w_2fast$' "$wt2/mobile/android/worktree.properti
   || fail "digit-leading dir segment wrong: $(cat "$wt2/mobile/android/worktree.properties")"
 
 # ── Explicit Android debug identity: readable and isolated ───────────────────
-BUZZ_ANDROID_DEBUG_APP_NAME="Buzz Huddles" \
+BUZZ_ANDROID_DEBUG_APP_NAME="ST8WRX Huddles" \
   BUZZ_ANDROID_DEBUG_ID_SUFFIX=".huddles_829c" \
   "$wt/scripts/mobile-worktree-overrides.sh" > /dev/null
-grep -q '^appName=Buzz Huddles$' "$android" \
+grep -q '^appName=ST8WRX Huddles$' "$android" \
   && pass "explicit Android debug app name is persisted" \
   || fail "explicit Android debug app name wrong: $(cat "$android")"
 grep -q '^applicationIdSuffix=\.huddles_829c$' "$android" \
   && pass "explicit Android debug suffix is persisted" \
   || fail "explicit Android debug suffix wrong: $(cat "$android")"
-grep -q '^APP_DISPLAY_NAME = Buzz (' "$ios" \
-  && ! grep -q 'Buzz Huddles' "$ios" \
+grep -q '^APP_DISPLAY_NAME = ST8WRX (' "$ios" \
+  && ! grep -q 'ST8WRX Huddles' "$ios" \
   && pass "Android debug overrides do not change the iOS identity" \
   || fail "Android debug overrides must not change iOS identity: $(cat "$ios")"
 
@@ -143,7 +143,7 @@ if BUZZ_ANDROID_DEBUG_ID_SUFFIX=".Huddles" "$wt/scripts/mobile-worktree-override
 else
   pass "invalid explicit Android debug suffix is rejected"
 fi
-if BUZZ_ANDROID_DEBUG_APP_NAME=$'Buzz Huddles\nInjected' "$wt/scripts/mobile-worktree-overrides.sh" >/dev/null 2>&1; then
+if BUZZ_ANDROID_DEBUG_APP_NAME=$'ST8WRX Huddles\nInjected' "$wt/scripts/mobile-worktree-overrides.sh" >/dev/null 2>&1; then
   fail "unsafe explicit Android debug app name must be rejected"
 else
   pass "unsafe explicit Android debug app name is rejected"
@@ -172,17 +172,17 @@ grep -q 'WorktreeOverrides' "$release_xcconfig" \
 grep -q '^BUNDLE_IDENTIFIER = com\.buzz\.buzzMobile$' "$release_xcconfig" \
   && pass "Release.xcconfig keeps the production bundle identifier" \
   || fail "Release.xcconfig must keep BUNDLE_IDENTIFIER = com.buzz.buzzMobile"
-grep -q '^APP_DISPLAY_NAME = Buzz$' "$release_xcconfig" \
+grep -q '^APP_DISPLAY_NAME = ST8WRX$' "$release_xcconfig" \
   && pass "Release.xcconfig keeps the production display name" \
-  || fail "Release.xcconfig must keep APP_DISPLAY_NAME = Buzz"
+  || fail "Release.xcconfig must keep APP_DISPLAY_NAME = ST8WRX"
 grep -q '<string>$(APP_DISPLAY_NAME)</string>' "$plist" \
   && pass "Info.plist display name resolves from build settings" \
   || fail "Info.plist CFBundleDisplayName must be \$(APP_DISPLAY_NAME)"
 grep -q 'android:label="@string/app_name"' "$manifest" \
   && pass "Android manifest label resolves from resources" \
   || fail "Android manifest label must be @string/app_name"
-grep -q 'resValue("string", "app_name", "Buzz")' "$gradle" \
-  && pass "Gradle default app_name stays Buzz" \
+grep -q 'resValue("string", "app_name", "ST8WRX")' "$gradle" \
+  && pass "Gradle default app_name stays ST8WRX" \
   || fail "Gradle must declare the default app_name resValue"
 grep -q 'worktreeLabel.matches' "$gradle" \
   && pass "Gradle validates the worktree label before use" \

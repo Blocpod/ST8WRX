@@ -536,6 +536,10 @@ pub async fn dispatch(
 ) -> Result<(), CliError> {
     use crate::UsersCmd;
     match cmd {
+        UsersCmd::PublicKey => {
+            println!("{}", client.keys().public_key().to_hex());
+            Ok(())
+        }
         UsersCmd::Get {
             pubkeys,
             name,

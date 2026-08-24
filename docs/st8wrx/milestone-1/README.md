@@ -1,50 +1,44 @@
-# Milestone 1 contribution handoff
+# Milestone 1 live contribution receipt
 
-These files are the public, signed pre-transaction state for the first real
-ST8WRX contribution slice. The evidence event names Git commit
-`789f66d370f58a4910d43dc50c8e73e4c8bb5c6b`, the repository's independent
-foundation commit. It is scoped by a signed Buzz NIP-MP project event and NIP-34
-repository coordinate.
+This directory contains both the historical deterministic proposal fixture and
+the completed live Milestone 1 receipt. The fixture files (`proposal.json`,
+`intent.json`, and `prepared.json`) remain useful test vectors but use ephemeral
+public identities and are not the live milestone proof.
 
-- `proposal.json` preserves the signed project event, signed Git evidence, the
-  two-founder policy, and two independently signed governance approvals.
-- `intent.json` records the exact decision intent and unsigned Nostr event
-  template each founder signed.
-- `prepared.json` is the independently verified contribution, 1,000 CU award,
-  project-scoped Merkle proof, and exact BSV testnet locking script waiting for
-  an external wallet.
+The authoritative artifact is [`live-receipt.json`](live-receipt.json). It was
+created from real signed ST8WRX runtime activity and real persistent project and
+governance identities.
 
-No private key, seed phrase, WIF, `nsec`, or wallet credential is present. The
-fixture generator creates ephemeral Nostr keys in memory and writes only signed
-public events. It is a milestone evidence fixture, not a production identity or
-governance workflow.
+## Live identifiers
 
-## Stable identifiers
+- Project: `30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1`
+- Contributor: `nostr:b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1`
+- Contribution: `b6376bc04df9d0c4cc9bc81e506b32a004199e4f226f62515149a23f9fdc5ade`
+- Contribution Units: `1000`
+- Approver 1: `nostr:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41`
+- Approver 2: `nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06`
+- Contribution snapshot: `df3a494c86739f3ef3a319f1b772432f3683fd014cb7bfebc11ea3609ec5f72`
+- Project snapshot: `f479b7f36b507115cc64cd1b0a5be3bf9fd845b8cd87bba8e6c86506365e3d66`
+- Merkle root: `bb9eef492e23269efea4ead5ac4d3f2f759a2b82a87dad2100cee15483080af8`
+- BSV testnet txid: `732609ae6ea8df7883a2229a5af9ab8b32316e7101c108a93c962668aa4538b9`
+- Mined block: `1754486` / `0000000000c046761bce820232597af48e915d011a3e3cd4bf6bd78b06f00224`
+- Verification: `mined_spv_verified`
 
-- Contribution ID:
-  `ada2ce7479748cb4eb931e874e05264ecc2cbab841334e250d6ad15a4c5463c9`
-- Governance intent:
-  `5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980`
-- Snapshot ID:
-  `c6f4774e9425c8e3cc813f23f873acf5b8d6373fa0325e397ec8a34e097771a2`
-- Merkle root:
-  `a5d86d22589fe044d4e218d0bc909daa5d57d75d29227bddfd1f7f88de6ace26`
-
-## Verify and finish
-
-Re-running `prepare` must reproduce the same IDs, root, and locking script:
+## Verify
 
 ```bash
-cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
-  intent --input docs/st8wrx/milestone-1/proposal.json \
-  --output /tmp/st8wrx-intent.json
-cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
-  prepare --input docs/st8wrx/milestone-1/proposal.json \
-  --output /tmp/st8wrx-prepared.json
+target/debug/st8-anchor-worker verify \
+  --receipt docs/st8wrx/milestone-1/live-receipt.json
 ```
 
-The remaining live step requires a funded external BRC-100 testnet wallet to
-create and sign a transaction containing the exact `locking_script_hex`, then an
-ARC-compatible broadcaster. Put only the resulting public transaction material
-in `external-result.json`; never provide a private key. Run `finalize` and
-`verify` as documented in `../BSV-TOOLING.md`.
+An existing public receipt can be upgraded after confirmation without wallet
+access:
+
+```bash
+target/debug/st8-anchor-worker refresh-receipt \
+  --receipt docs/st8wrx/milestone-1/live-receipt.json
+```
+
+The verifier rejects altered project scope, forged approvals, changed CU or
+snapshot state, invalid Merkle siblings/root, changed raw transaction bytes,
+txid substitution, altered commitment payload, and inconsistent network state.

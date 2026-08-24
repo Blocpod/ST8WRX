@@ -216,6 +216,9 @@ enum Cmd {
     /// Create and manage multi-repo projects (NIP-MP)
     #[command(subcommand)]
     Projects(ProjectsCmd),
+    /// Govern, inspect, and verify ST8WRX contribution records
+    #[command(subcommand)]
+    Contributions(ContributionsCmd),
     /// Send, get, list, and set status on git patches (NIP-34)
     #[command(subcommand)]
     Patches(PatchesCmd),
@@ -839,6 +842,9 @@ pub enum DmsCmd {
 
 #[derive(Subcommand)]
 pub enum UsersCmd {
+    /// Print the current signing identity's public key without network access
+    #[command(name = "public-key")]
+    PublicKey,
     /// Look up user profiles by pubkey or name
     Get {
         /// User pubkey(s) to look up (64-char hex). Omit for your own profile
@@ -1376,6 +1382,123 @@ pub enum ProjectsCmd {
     Delete {
         /// Project slug
         slug: String,
+    },
+}
+
+/// Contributor identity category for a signed ST8WRX claim.
+#[derive(Clone, Copy, clap::ValueEnum)]
+pub enum ContributionContributorKind {
+    Human,
+    Agent,
+    ComputeNode,
+    Organization,
+}
+
+/// Stable contribution category.
+#[derive(Clone, Copy, clap::ValueEnum)]
+pub enum ContributionClassArg {
+    Intellectual,
+    Architecture,
+    Engineering,
+    ProductDesign,
+    AgentWork,
+    Compute,
+    TestingSecurityReview,
+    ResearchData,
+    CommercialDistribution,
+    Capital,
+}
+
+/// Governance result proposed for a contribution.
+#[derive(Clone, Copy, clap::ValueEnum)]
+pub enum ContributionDecisionStatus {
+    Accepted,
+    Rejected,
+    Adjusted,
+}
+
+#[derive(Subcommand)]
+pub enum ContributionsCmd {
+    /// Publish a project-owner-signed, versioned governance policy
+    #[command(name = "set-policy")]
+    SetPolicy {
+        /// Full kind-30621 project coordinate
+        #[arg(long)]
+        project: String,
+        /// Immutable policy version label
+        #[arg(long)]
+        version: String,
+        /// Authorized Nostr public key (repeat for each authority)
+        #[arg(long = "authority", required = true)]
+        authorities: Vec<String>,
+        /// Approvals required for ordinary awards
+        #[arg(long)]
+        normal_threshold: u16,
+        /// Approvals required for large awards
+        #[arg(long)]
+        large_threshold: u16,
+        /// CU award at which the large threshold applies
+        #[arg(long)]
+        large_unit_threshold: u64,
+    },
+    /// Claim project-scoped signed Buzz/Git work evidence
+    Claim {
+        /// Full kind-30621 project coordinate
+        #[arg(long)]
+        project: String,
+        /// Signed evidence event ID (repeatable)
+        #[arg(long = "evidence", required = true)]
+        evidence_ids: Vec<String>,
+        /// Contributor identity category
+        #[arg(long, value_enum, default_value = "human")]
+        contributor_kind: ContributionContributorKind,
+        /// Contribution category
+        #[arg(long, value_enum)]
+        class: ContributionClassArg,
+        /// Human-readable contribution summary
+        #[arg(long)]
+        summary: String,
+    },
+    /// Propose an exact CU decision for a signed claim
+    Propose {
+        /// Contributor claim event ID
+        #[arg(long)]
+        claim: String,
+        /// Project policy version
+        #[arg(long)]
+        policy_version: String,
+        /// Governance result
+        #[arg(long, value_enum)]
+        status: ContributionDecisionStatus,
+        /// Non-transferable Contribution Units (zero only for rejection)
+        #[arg(long)]
+        units: u64,
+        /// Human-readable rationale
+        #[arg(long)]
+        rationale: String,
+        /// Seconds during which authorities may sign this exact proposal
+        #[arg(long, default_value_t = 900)]
+        decision_window_secs: u64,
+    },
+    /// Approve one exact signed governance decision proposal
+    Approve {
+        /// Decision proposal event ID
+        #[arg(long)]
+        proposal: String,
+    },
+    /// List relay-signed durable ledger projections for a project
+    List {
+        /// Full kind-30621 project coordinate
+        #[arg(long)]
+        project: String,
+        /// Maximum rows
+        #[arg(long, default_value_t = 100)]
+        limit: u32,
+    },
+    /// Get one relay-signed ledger projection by contribution ID
+    Show {
+        /// 32-byte contribution ID in hex
+        contribution_id: String,
     },
 }
 
@@ -2059,6 +2182,7 @@ async fn run(cli: Cli) -> Result<(), CliError> {
         Cmd::Notes(sub) => commands::notes::dispatch(sub, &client).await,
         Cmd::Repos(sub) => commands::repos::dispatch(sub, &client).await,
         Cmd::Projects(sub) => commands::projects::dispatch(sub, &client).await,
+        Cmd::Contributions(sub) => commands::contributions::dispatch(sub, &client).await,
         Cmd::Patches(sub) => commands::patches::dispatch(sub, &client).await,
         Cmd::Issues(sub) => commands::issues::dispatch(sub, &client).await,
         Cmd::Pr(sub) => commands::pr::dispatch(sub, &client).await,
@@ -2197,6 +2321,7 @@ mod tests {
             "agents",
             "canvas",
             "channels",
+            "contributions",
             "dms",
             "emoji",
             "feed",
@@ -2302,6 +2427,10 @@ mod tests {
             ]
         );
         assert_eq!(names(&cmd, "canvas"), vec!["get", "set"]);
+        assert_eq!(
+            names(&cmd, "contributions"),
+            vec!["approve", "claim", "list", "propose", "set-policy", "show"]
+        );
         assert_eq!(names(&cmd, "reactions"), vec!["add", "get", "remove"]);
         assert_eq!(
             names(&cmd, "emoji"),
@@ -2316,6 +2445,7 @@ mod tests {
             vec![
                 "get",
                 "presence",
+                "public-key",
                 "set-presence",
                 "set-profile",
                 "set-status"
@@ -2405,6 +2535,7 @@ mod tests {
             ("agents", 5),
             ("canvas", 2),
             ("channels", 16),
+            ("contributions", 6),
             ("dms", 4),
             ("emoji", 5),
             ("feed", 1),
@@ -2419,7 +2550,7 @@ mod tests {
             ("repos", 5),
             ("social", 7),
             ("upload", 1),
-            ("users", 5),
+            ("users", 6),
             ("workflows", 8),
         ];
 

@@ -1,67 +1,56 @@
 # Current BSV tooling decisions
 
-Research date: 2026-08-23. Re-check versions before introducing a production
-wallet, broadcaster, token, or smart contract.
+Validated against the live Milestone 1 testnet anchor on 2026-08-24.
 
-## Current direction
+## Standards and authority boundaries
 
-- [BRC-100](https://bsv.brc.dev/wallet/0100) remains the application-to-wallet
-  interface. ST8WRX should connect to a user's wallet rather than own general
-  wallet keys.
-- [BEEF (BRC-62)](https://bsv.brc.dev/transactions/0062) carries the transaction
-  ancestry and Merkle paths needed for SPV validation.
-- [Atomic BEEF (BRC-95)](https://bsv.brc.dev/transactions/0095) restricts that
-  bundle to one subject transaction and its dependency graph. The V1 receipt
-  retains Atomic BEEF when the wallet provides it.
-- The current official TypeScript stack exposes `@bsv/sdk` and
-  `@bsv/wallet-toolbox`; the [official package map](https://github.com/bsv-blockchain/ts-stack/blob/main/docs/packages/index.md)
-  lists SDK primitives, BEEF/SPV, wallet tooling, and network packages.
-- The official Rust SDK fork exists at
-  [bsv-blockchain/rs-sdk](https://github.com/bsv-blockchain/rs-sdk), but it is
-  still early and Open-BSV-licensed. It is intentionally not a dependency of the
-  Apache-2.0 protocol crates.
-- ARC remains the broadcaster boundary. A successful/known transaction response
-  is normalized into `BroadcastReceipt`; provider-specific callbacks and status
-  polling belong in an adapter, not the contribution protocol.
-- sCrypt remains relevant for later escrow/licensing phases, not for the first
-  data commitment. Contract work starts only when bounty escrow is required.
+- [BRC-100](https://bsv.brc.dev/wallet/0100) is the application-to-wallet
+  boundary. ST8WRX requests signing; the wallet retains custody and authority.
+- [BEEF (BRC-62)](https://bsv.brc.dev/transactions/0062) carries transaction
+  ancestry and mined Merkle paths.
+- [Atomic BEEF (BRC-95)](https://bsv.brc.dev/transactions/0095) binds one subject
+  transaction and its dependency graph. The wallet-returned Atomic BEEF is
+  persisted before broadcast.
+- BSV keys are separate from Buzz/Nostr contributor and governance identities.
+- Contribution Units are internal, non-transferable accounting units, not BSV
+  tokens, legal equity, or securities.
 
-## Wallet contract
+## Worker contract
 
-Before wallet preparation, `st8wrx-contribution intent` verifies the signed
-project/evidence context and emits the exact kind-49800 Nostr event template
-project authorities sign. `prepare` derives approver identities from those
-verified signatures and enforces the configured unique-founder threshold; it
-does not accept caller-supplied approver names.
+`st8-anchor-worker` verifies a queued `PreparedContributionAnchor`, checks that
+the external wallet reports `testnet`, and calls `createAction` with:
 
-`prepared.json` contains `locking_script_hex`. A BRC-100 adapter should:
+- one zero-satoshi output containing the exact ST8WRX locking script;
+- synchronous wallet processing so selected inputs are durably retired before
+  the call returns;
+- deterministic output ordering for verifiable commitment location; and
+- wallet-managed input selection, signing, change, and fee payment.
 
-1. call `createAction` for a zero-satoshi data output using that exact script;
-2. use `noSend: true` so wallet custody and signing stay external;
-3. retain the returned Atomic BEEF;
-4. extract the standard raw subject transaction;
-5. broadcast through an ARC-compatible provider; and
-6. create `external-result.json`:
+The wallet broadcasts without exposing keys. The worker immediately verifies
+the exact commitment and persists txid, raw bytes, and Atomic BEEF before its
+independent provider submission/observation. A retry resumes those exact bytes
+and cannot create a second wallet spend.
 
-```json
-{
-  "raw_transaction_hex": "...",
-  "atomic_beef_hex": "...",
-  "anchor_output_index": 0,
-  "broadcast": {
-    "accepted": true,
-    "status": "SEEN_ON_NETWORK",
-    "provider": "arc-provider-name"
-  }
-}
-```
+## Broadcast and proof providers
 
-The finalize command recomputes the txid from raw bytes; callers do not supply a
-trusted txid.
+ARC remains the preferred lifecycle API. TAAL's public testnet ARC currently
+requires authorization and returned HTTP 401 during the live run. The worker
+therefore falls back to WhatsOnChain's documented small-scale
+`POST /v1/bsv/test/tx/raw` endpoint and preserves both provider outcomes.
 
-## Live-test requirement
+After broadcast, completion requires independent WhatsOnChain reads of:
 
-A real testnet broadcast needs a reachable BRC-100 wallet (or another external
-signer) with a funded testnet UTXO. ST8WRX never generates, logs, or accepts the
-wallet private key. Without that external authority the code can prepare and
-fully test the protocol, but it cannot honestly claim a live network broadcast.
+- the exact raw transaction;
+- decoded transaction details and current testnet state.
+
+When the transaction is mined, the worker additionally persists mined BEEF/BUMP
+and block fields used to recompute the Merkle root and 80-byte header hash.
+
+The receipt verifier is offline: it consumes persisted public proof material,
+not a wallet, API credential, or trusted database connection.
+
+## Live artifact
+
+[`milestone-1/live-receipt.json`](milestone-1/live-receipt.json) contains only
+public transaction/evidence/proof material. It contains no wallet credential,
+private key, WIF, mnemonic, seed phrase, or `nsec`.

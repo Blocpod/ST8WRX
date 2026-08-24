@@ -631,6 +631,23 @@ pub const KIND_GIT_STATUS_DRAFT: u32 = 1633;
 /// announcement, never a project. See `docs/nips/NIP-MP.md`.
 pub const KIND_PROJECT: u32 = 30621;
 
+/// ST8WRX: project-owner-signed contribution governance policy.
+///
+/// Parameterized replaceable with `d = <policy-version>` and an `a` tag naming
+/// the kind-30621 project it governs.
+pub const KIND_ST8_GOVERNANCE_POLICY: u32 = 30624;
+/// ST8WRX: contributor-signed claim over project-scoped work evidence.
+pub const KIND_ST8_CONTRIBUTION_CLAIM: u32 = 49801;
+/// ST8WRX: authorized project-governance decision proposal.
+pub const KIND_ST8_DECISION_PROPOSAL: u32 = 49802;
+/// ST8WRX: append-only project-authority approval of an exact decision digest.
+pub const KIND_ST8_GOVERNANCE_APPROVAL: u32 = 49803;
+/// ST8WRX: relay-signed, queryable projection of a durable contribution-ledger entry.
+///
+/// Parameterized replaceable with `d = <contribution-id>`; the PostgreSQL
+/// contribution ledger remains the authoritative materialized projection.
+pub const KIND_ST8_LEDGER_ENTRY: u32 = 30625;
+
 /// All registered kind constants — used for duplicate detection and iteration.
 pub const ALL_KINDS: &[u32] = &[
     KIND_PROFILE,
@@ -763,6 +780,11 @@ pub const ALL_KINDS: &[u32] = &[
     KIND_GIT_STATUS_CLOSED,
     KIND_GIT_STATUS_DRAFT,
     KIND_PROJECT,
+    KIND_ST8_GOVERNANCE_POLICY,
+    KIND_ST8_CONTRIBUTION_CLAIM,
+    KIND_ST8_DECISION_PROPOSAL,
+    KIND_ST8_GOVERNANCE_APPROVAL,
+    KIND_ST8_LEDGER_ENTRY,
 ];
 
 /// Returns `true` if `kind` is in the ephemeral range (20000–29999).
@@ -836,6 +858,7 @@ pub const fn is_relay_only_kind(kind: u32) -> bool {
             | KIND_DM_VISIBILITY
             | KIND_THREAD_SUMMARY
             | KIND_WINDOW_BOUNDS
+            | KIND_ST8_LEDGER_ENTRY
     )
 }
 
@@ -861,6 +884,8 @@ const _: () = assert!(is_parameterized_replaceable(KIND_PRIVATE_MANAGED_AGENT));
 const _: () = assert!(is_parameterized_replaceable(KIND_WORKFLOW_DEF)); // 30620 ∈ 30000–39999
 const _: () = assert!(is_parameterized_replaceable(KIND_EVENT_REMINDER)); // 30300 ∈ 30000–39999
 const _: () = assert!(is_parameterized_replaceable(KIND_DM_VISIBILITY)); // 30622 ∈ 30000–39999
+const _: () = assert!(is_parameterized_replaceable(KIND_ST8_GOVERNANCE_POLICY));
+const _: () = assert!(is_parameterized_replaceable(KIND_ST8_LEDGER_ENTRY));
 const _: () = assert!(is_parameterized_replaceable(KIND_PROJECT)); // 30621 ∈ 30000–39999
 const _: () = assert!(is_parameterized_replaceable(KIND_THREAD_SUMMARY)); // 39005 ∈ 30000–39999
 const _: () = assert!(is_parameterized_replaceable(KIND_WINDOW_BOUNDS)); // 39006 ∈ 30000–39999

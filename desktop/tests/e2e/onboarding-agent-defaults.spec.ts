@@ -587,7 +587,7 @@ test("defaults can be skipped while loading without persisting configuration", a
   await expect(page.getByText("Loading…")).toBeVisible();
   await page.getByTestId("onboarding-config-skip").click();
 
-  await expect(page.getByText("Join or create a community")).toBeVisible();
+  await expect(page.getByText("Connect to a community")).toBeVisible();
   expect(await readSavedRuntime(page)).toBeNull();
 });
 
@@ -629,7 +629,7 @@ test("defaults stages auto-selection and edits without writing when skipped", as
 
   await page.getByTestId("onboarding-config-skip").click();
 
-  await expect(page.getByText("Join or create a community")).toBeVisible();
+  await expect(page.getByText("Connect to a community")).toBeVisible();
   expect(await readSavedRuntime(page)).toBeNull();
   expect(await readGlobalConfigSetterCallCount(page)).toBe(0);
 });
@@ -763,7 +763,7 @@ test("Next persists the latest staged harness choice", async ({ page }) => {
   await expect(finish).toBeEnabled();
   expect(await readGlobalConfigSetterCallCount(page)).toBe(0);
   await finish.click();
-  await expect(page.getByText("Join or create a community")).toBeVisible();
+  await expect(page.getByText("Connect to a community")).toBeVisible();
   await expect.poll(() => readSavedRuntime(page)).toBe("codex");
 });
 
@@ -802,7 +802,7 @@ test("Next shows saving state and advances only after persistence", async ({
   await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
   expect(await readSavedRuntime(page)).toBeNull();
 
-  await expect(page.getByText("Join or create a community")).toBeVisible();
+  await expect(page.getByText("Connect to a community")).toBeVisible();
   expect(await readSavedRuntime(page)).toBe("codex");
 });
 
@@ -843,7 +843,7 @@ test("Next keeps the draft and retries after a save failure", async ({
   expect(await readGlobalConfigSetterCallCount(page)).toBe(1);
 
   await page.getByTestId("onboarding-finish").click();
-  await expect(page.getByText("Join or create a community")).toBeVisible();
+  await expect(page.getByText("Connect to a community")).toBeVisible();
   expect(await readSavedRuntime(page)).toBe("claude");
   expect(await readGlobalConfigSetterCallCount(page)).toBe(2);
 });
@@ -1113,7 +1113,7 @@ test("Finish stays disabled until a provider-required harness is fully configure
 
   await expect(finish).toBeEnabled();
   await finish.click();
-  await expect(page.getByText("Join or create a community")).toBeVisible();
+  await expect(page.getByText("Connect to a community")).toBeVisible();
   expect(await readSavedRuntime(page)).toBe("buzz-agent");
 });
 

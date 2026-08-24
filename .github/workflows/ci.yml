@@ -513,7 +513,10 @@ jobs:
             SPROUT_REMINDER_SCHEDULER_INTERVAL_SECS=1 \
             ./target/ci/buzz-relay > /tmp/buzz-relay.log 2>&1 &
           echo $! > /tmp/buzz-relay.pid
-          for attempt in $(seq 1 60); do
+          # The mandatory object-store conformance gate can exceed one minute on
+          # a contended hosted runner. Keep polling the live process, but give the
+          # fail-closed startup probe enough time to finish.
+          for attempt in $(seq 1 120); do
             if ! kill -0 "$(cat /tmp/buzz-relay.pid)" 2>/dev/null; then
               cat /tmp/buzz-relay.log
               exit 1
@@ -670,7 +673,10 @@ jobs:
             SPROUT_REMINDER_SCHEDULER_INTERVAL_SECS=1 \
             ./target/ci/buzz-relay > /tmp/buzz-relay.log 2>&1 &
           echo $! > /tmp/buzz-relay.pid
-          for attempt in $(seq 1 60); do
+          # The mandatory object-store conformance gate can exceed one minute on
+          # a contended hosted runner. Keep polling the live process, but give the
+          # fail-closed startup probe enough time to finish.
+          for attempt in $(seq 1 120); do
             if ! kill -0 "$(cat /tmp/buzz-relay.pid)" 2>/dev/null; then
               cat /tmp/buzz-relay.log
               exit 1
@@ -894,7 +900,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: cashapp/activate-hermit@cea9af7913204a965fd488637a8d1811bba2e616 # v1
       - name: Dependency policy
-        run: cargo-deny check
+        run: node scripts/check-cargo-deny-policy.mjs
 
   dead-token-guard:
     name: Dead Token Reference Guard

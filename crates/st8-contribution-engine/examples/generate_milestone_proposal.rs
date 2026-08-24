@@ -7,7 +7,10 @@
 use buzz_core::{kind::KIND_GIT_PATCH, Keys, Kind};
 use buzz_sdk::{build_project, ProjectMemberCoord};
 use nostr::{EventBuilder, Tag, Timestamp};
-use st8_contribution_engine::{ContributionProposal, GovernancePolicy};
+use st8_contribution_engine::{
+    BuzzProjectContext, ContributionClaimBody, ContributionClaimContext, ContributionProposal,
+    GovernancePolicy,
+};
 use st8_contribution_protocol::{ContributionClass, ContributorKind, DecisionStatus};
 use std::{env, fs, path::PathBuf};
 
@@ -78,29 +81,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         large_threshold: 2,
         large_unit_threshold: 1_000,
     };
+    let governance_policy_event = governance_policy
+        .event_builder()?
+        .custom_created_at(Timestamp::from(u64::try_from(created_at + 2)?))
+        .sign_with_keys(&founder_a)?;
+    let claim_event = ContributionClaimBody {
+        contributor_kind: ContributorKind::Human,
+        class: ContributionClass::Engineering,
+        summary: format!("Independent ST8WRX protocol foundation at Git commit {git_commit}"),
+    }
+    .event_builder(
+        &governance_policy.project,
+        std::slice::from_ref(&evidence_event),
+    )?
+    .custom_created_at(Timestamp::from(u64::try_from(created_at + 3)?))
+    .sign_with_keys(&contributor)?;
+    let project_context = BuzzProjectContext::from_event(&project_event)?;
+    let claim = ContributionClaimContext::from_event(
+        &project_context,
+        &claim_event,
+        std::slice::from_ref(&evidence_event),
+    )?;
+    let intent = governance_policy.decision_intent(
+        &claim.record,
+        DecisionStatus::Accepted,
+        1_000,
+        created_at + 60,
+        "Two project founders accepted the grounded engineering contribution.".into(),
+    )?;
+    let decision_proposal_event = intent
+        .proposal_event_builder_for_claim_and_policy(&claim_event, &governance_policy_event)?
+        .custom_created_at(Timestamp::from(u64::try_from(created_at + 4)?))
+        .sign_with_keys(&founder_a)?;
     let mut proposal = ContributionProposal {
         project_event,
         evidence_events: vec![evidence_event],
-        governance_policy,
-        contributor: format!("nostr:{}", contributor.public_key().to_hex()),
-        contributor_kind: ContributorKind::Human,
-        class: ContributionClass::Engineering,
-        created_at: created_at + 1,
-        summary: format!("Independent ST8WRX protocol foundation at Git commit {git_commit}"),
-        status: DecisionStatus::Accepted,
-        contribution_units: 1_000,
+        governance_policy_event,
+        claim_event,
+        decision_proposal_event,
         approval_events: Vec::new(),
-        decided_at: created_at + 60,
-        rationale: "Two project founders accepted the grounded engineering contribution.".into(),
     };
-    let intent = proposal.governance_intent()?;
     proposal.approval_events = vec![
         intent
-            .approval_event_builder()?
+            .approval_event_builder_for_proposal(&proposal.decision_proposal_event)?
             .custom_created_at(Timestamp::from(u64::try_from(created_at + 30)?))
             .sign_with_keys(&founder_a)?,
         intent
-            .approval_event_builder()?
+            .approval_event_builder_for_proposal(&proposal.decision_proposal_event)?
             .custom_created_at(Timestamp::from(u64::try_from(created_at + 31)?))
             .sign_with_keys(&founder_b)?,
     ];

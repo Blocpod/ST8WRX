@@ -9,7 +9,6 @@ type SettingsSection =
   | "compute"
   | "appearance"
   | "shortcuts"
-  | "hosted-communities"
   | "tokens"
   | "community-members"
   | "mobile"

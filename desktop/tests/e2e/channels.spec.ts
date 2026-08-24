@@ -1054,7 +1054,7 @@ test("drops an expanded DM after the first message fails", async ({ page }) => {
 
   await input.fill(retryMessage);
   const retryBaseline = commandsAfterFailure.length;
-  await page.getByTestId("send-message").click();
+  await input.press("Enter");
 
   await expect(page.getByTestId("chat-title")).toHaveText("charlie");
   await expect(page.getByTestId("message-timeline")).toContainText(
@@ -1133,7 +1133,7 @@ test("drops an expanded DM after agent startup fails", async ({ page }) => {
 
   await input.fill(retryMessage);
   const retryBaseline = commandsAfterFailure.length;
-  await page.getByTestId("send-message").click();
+  await input.press("Enter");
 
   await expect(page.getByTestId("chat-title")).toHaveText("charlie");
   await expect(page.getByTestId("message-timeline")).toContainText(

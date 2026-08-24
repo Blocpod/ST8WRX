@@ -2156,7 +2156,9 @@ test("renders settings in the app shell with a back button", async ({
     "aria-pressed",
     "true",
   );
-  await expect(page.getByText("Communities", { exact: true })).toBeVisible();
+  // The default E2E relay is open and has no owner/admin membership snapshot,
+  // so privileged community management must stay out of the navigation.
+  await expect(page.getByText("Communities", { exact: true })).toHaveCount(0);
   await expect(
     page.getByTestId("settings-nav-channel-templates"),
   ).toBeVisible();
@@ -2704,7 +2706,6 @@ test("settings subtitles share the Appearance secondary color", async ({
     "custom-emoji",
     "local-archive",
     "channel-templates",
-    "hosted-communities",
     "agents",
     "compute",
     "experimental",

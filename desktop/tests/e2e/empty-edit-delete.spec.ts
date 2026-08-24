@@ -38,7 +38,9 @@ async function submitEmptyEdit(
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.press("Backspace");
   await expect(input).toBeEmpty();
-  await page.keyboard.press("Enter");
+  // Address the editor directly: under a heavily loaded shard an async render
+  // can move page-level focus between the clear and submit keystrokes.
+  await input.press("Enter");
 }
 
 test.beforeEach(async ({ page }) => {
@@ -106,7 +108,7 @@ test("a non-empty edit still edits and never deletes", async ({ page }) => {
   await input.click();
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.type(editedContent);
-  await page.keyboard.press("Enter");
+  await input.press("Enter");
 
   // No delete confirmation, edit mode exits, the row survives with new text.
   await expect(page.getByRole("alertdialog")).toHaveCount(0);

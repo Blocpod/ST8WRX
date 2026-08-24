@@ -3,6 +3,7 @@ members = [
     "crates/st8-contribution-protocol",
     "crates/st8-bsv-provenance",
     "crates/st8-contribution-engine",
+    "crates/st8-anchor-worker",
     "crates/buzz-relay",
     "crates/buzz-core",
     "crates/buzz-conformance",
@@ -152,6 +153,8 @@ buzz-relay-mesh = { path = "crates/buzz-relay-mesh" }
 buzz-datastore-tracing = { path = "crates/buzz-datastore-tracing" }
 st8-contribution-protocol = { path = "crates/st8-contribution-protocol" }
 st8-bsv-provenance = { path = "crates/st8-bsv-provenance" }
+st8-contribution-engine = { path = "crates/st8-contribution-engine" }
+bsv-sdk = { version = "0.1.71", features = ["network"] }
 
 # CI profile — builds the relay for desktop e2e. Dependencies keep full
 # release optimization (warm from main's cache; they carry the runtime hot
