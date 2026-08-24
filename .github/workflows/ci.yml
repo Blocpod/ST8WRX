@@ -513,7 +513,10 @@ jobs:
             SPROUT_REMINDER_SCHEDULER_INTERVAL_SECS=1 \
             ./target/ci/buzz-relay > /tmp/buzz-relay.log 2>&1 &
           echo $! > /tmp/buzz-relay.pid
-          for attempt in $(seq 1 60); do
+          # The mandatory object-store conformance gate can exceed one minute on
+          # a contended hosted runner. Keep polling the live process, but give the
+          # fail-closed startup probe enough time to finish.
+          for attempt in $(seq 1 120); do
             if ! kill -0 "$(cat /tmp/buzz-relay.pid)" 2>/dev/null; then
               cat /tmp/buzz-relay.log
               exit 1
@@ -670,7 +673,10 @@ jobs:
             SPROUT_REMINDER_SCHEDULER_INTERVAL_SECS=1 \
             ./target/ci/buzz-relay > /tmp/buzz-relay.log 2>&1 &
           echo $! > /tmp/buzz-relay.pid
-          for attempt in $(seq 1 60); do
+          # The mandatory object-store conformance gate can exceed one minute on
+          # a contended hosted runner. Keep polling the live process, but give the
+          # fail-closed startup probe enough time to finish.
+          for attempt in $(seq 1 120); do
             if ! kill -0 "$(cat /tmp/buzz-relay.pid)" 2>/dev/null; then
               cat /tmp/buzz-relay.log
               exit 1

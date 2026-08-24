@@ -180,7 +180,10 @@ echo $! > /tmp/buzz-relay.pid
 # ── Poll readiness ───────────────────────────────────────────────────────────
 
 log "Waiting for relay readiness..."
-for attempt in $(seq 1 60); do
+# The mandatory object-store conformance gate can exceed one minute on a
+# contended hosted runner. Keep polling the live process, but allow the gate to
+# finish before classifying startup as failed.
+for attempt in $(seq 1 120); do
   if ! kill -0 "$(cat /tmp/buzz-relay.pid)" 2>/dev/null; then
     err "Relay process died"
     cat /tmp/buzz-relay.log
@@ -195,6 +198,6 @@ for attempt in $(seq 1 60); do
   sleep 1
 done
 
-err "Relay did not become ready within 60s"
+err "Relay did not become ready within 120s"
 cat /tmp/buzz-relay.log
 exit 1
