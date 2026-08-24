@@ -811,8 +811,12 @@ test("assigns distinct agent voices and exposes compact per-agent controls", asy
   });
   expect(new Set(assignedVoices).size).toBe(2);
 
-  await page.getByRole("button", { name: "Voice settings for alice" }).click();
+  const aliceVoiceMenuTrigger = page.getByRole("button", {
+    name: "Voice settings for alice",
+  });
   await waitForAnimations(page);
+  await aliceVoiceMenuTrigger.press("Enter");
+  await expect(aliceVoiceMenuTrigger).toHaveAttribute("aria-expanded", "true");
   const voiceMenu = page.locator(
     '[data-testid="huddle-agent-voice-menu-content"][data-state="open"]',
   );
