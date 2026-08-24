@@ -1,0 +1,22 @@
+{
+  "id": "c625be9c70e2eec5bf4a1a873576d9599948c9459859562f0cdcb5176c120f34",
+  "pubkey": "d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06",
+  "created_at": 1787584238,
+  "kind": 30627,
+  "tags": [
+    [
+      "d",
+      "9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5"
+    ],
+    [
+      "st8-capability",
+      "9a47a273c03aa161df9a44982e956efc0f92497fbfe6d91555bec7ac7e409cee"
+    ],
+    [
+      "st8-node",
+      "9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5"
+    ]
+  ],
+  "content": "{\"capability\":{\"node_owner_id\":\"9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5\",\"node_public_key\":[71,71,94,148,215,123,123,220,56,110,30,110,199,58,138,180,252,213,127,235,44,198,252,129,108,166,66,70,215,53,30,251],\"provider\":\"nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06\",\"runtime_version\":\"mesh-llm-v0.75.1/st8-meter-v1\",\"cpu_cores\":8,\"ram_bytes\":8589934592,\"accelerators\":[{\"name\":\"Apple M1\",\"memory_bytes\":5726633984}],\"models\":[{\"model_id\":\"unsloth/Qwen3-0.6B-GGUF:Q4_K_M\",\"context_tokens\":null}],\"workloads\":[\"LlmInference\"],\"ingress_bits_per_second\":null,\"egress_bits_per_second\":null,\"available_until\":1787587838,\"pricing_policy_id\":[88,104,45,2,126,216,30,212,35,109,67,3,58,166,34,163,22,158,50,115,199,135,201,150,91,171,83,75,105,143,216,239],\"reputation_refs\":[]},\"node_signature\":[173,67,1,105,48,191,183,104,40,69,62,39,177,48,239,181,237,86,74,63,39,0,35,105,146,242,135,199,147,161,163,96,85,209,250,246,123,113,86,192,92,50,43,113,205,151,62,145,162,31,83,202,133,83,91,209,125,200,80,47,246,76,244,8]}",
+  "sig": "8676f9693c21f72758ce233ce9b67dcfd1da2e7e27f27b54beac1b506259a8aee210bbb97944799f55a204b9a59da1d3f494168eb8708e0c1e6a72d8d044e1d1"
+}

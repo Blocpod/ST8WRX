@@ -46,6 +46,7 @@ ST8WRX is organized into five conceptual layers:
    agents, compute, APIs, models, datasets, licenses, and bounties.
 
 See [ST8WRX architecture](docs/st8wrx/ARCHITECTURE.md), the
+[ST8 Compute protocol and operations](docs/st8wrx/ST8-COMPUTE.md), the
 [upstream audit](docs/st8wrx/UPSTREAM-AUDIT.md), and the
 [milestone runbook](docs/st8wrx/MILESTONE-1.md).
 

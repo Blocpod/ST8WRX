@@ -17,6 +17,9 @@ pub mod api_token;
 pub mod archived_identities;
 /// Channel and membership persistence.
 pub mod channel;
+/// ST8 Compute job, receipt, dispute, settlement, and anchor persistence.
+pub mod compute;
+mod compute_anchor;
 /// ST8WRX contribution ledger and asynchronous BSV anchor queue.
 pub mod contribution;
 /// Durable whole-community deletion lifecycle and PostgreSQL adapter.

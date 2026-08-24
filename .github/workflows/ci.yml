@@ -86,6 +86,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           save-if: ${{ github.event_name != 'pull_request' }}
+      # sherpa-onnx-sys accepts an existing lib/ directory without validating
+      # its required archives. Do not let an interrupted rust-cache snapshot
+      # turn into a deterministic linker failure on later runs.
+      - name: Reset sherpa native cache
+        run: rm -rf -- target/sherpa-onnx-prebuilt
       - name: Format check
         run: just fmt-check
       - name: Desktop Tauri format check
@@ -108,6 +113,8 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           save-if: ${{ github.event_name != 'pull_request' }}
+      - name: Reset sherpa native cache
+        run: rm -rf -- target/sherpa-onnx-prebuilt
       - name: Install cargo-nextest
         uses: taiki-e/install-action@0fd46367812ee04360509b4169d9f659d6892bb2 # v2.79.15
         with:
@@ -133,6 +140,8 @@ jobs:
         with:
           workspaces: desktop/src-tauri
           save-if: ${{ github.event_name != 'pull_request' }}
+      - name: Reset sherpa native cache
+        run: rm -rf -- desktop/src-tauri/target/sherpa-onnx-prebuilt
       - name: Install Tauri dependencies (Linux)
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -988,6 +997,11 @@ jobs:
             desktop/src-tauri
           key: windows-msvc
           save-if: ${{ github.event_name != 'pull_request' }}
+      - name: Reset sherpa native cache
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force target/sherpa-onnx-prebuilt -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force desktop/src-tauri/target/sherpa-onnx-prebuilt -ErrorAction SilentlyContinue
       # Tauri validates externalBin at compile time, so the Tauri-crate steps
       # below fail without these stubs. Mirrors scripts/bundle-sidecars.sh's
       # Windows naming (binaries/<bin>-<triple>.exe); empty files suffice for a
@@ -1062,6 +1076,8 @@ jobs:
         with:
           workspaces: desktop/src-tauri
           save-if: ${{ github.event_name != 'pull_request' }}
+      - name: Reset sherpa native cache
+        run: rm -rf -- desktop/src-tauri/target/sherpa-onnx-prebuilt
       - name: Install desktop dependencies
         run: just desktop-install-ci
       - name: Create sidecar placeholders

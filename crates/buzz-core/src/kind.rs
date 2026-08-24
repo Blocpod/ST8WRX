@@ -647,6 +647,22 @@ pub const KIND_ST8_GOVERNANCE_APPROVAL: u32 = 49803;
 /// Parameterized replaceable with `d = <contribution-id>`; the PostgreSQL
 /// contribution ledger remains the authoritative materialized projection.
 pub const KIND_ST8_LEDGER_ENTRY: u32 = 30625;
+/// ST8 Compute: provider-signed immutable integer-satoshi pricing policy.
+pub const KIND_ST8_COMPUTE_PRICING: u32 = 30626;
+/// ST8 Compute: provider- and Mesh-owner-signed node capability announcement.
+pub const KIND_ST8_COMPUTE_CAPABILITY: u32 = 30627;
+/// ST8 Compute: relay-signed durable compute receipt projection.
+pub const KIND_ST8_COMPUTE_LEDGER_ENTRY: u32 = 30628;
+/// ST8 Compute: relay-signed durable settlement projection.
+pub const KIND_ST8_COMPUTE_SETTLEMENT_ENTRY: u32 = 30629;
+/// ST8 Compute: requester-signed project-scoped compute authorization.
+pub const KIND_ST8_COMPUTE_JOB: u32 = 49811;
+/// ST8 Compute: provider Nostr signature plus persistent Mesh-owner attestation.
+pub const KIND_ST8_COMPUTE_RECEIPT: u32 = 49812;
+/// ST8 Compute: requester or project-authority dispute of an exact receipt.
+pub const KIND_ST8_COMPUTE_DISPUTE: u32 = 49813;
+/// ST8 Compute: project-owner-signed periodic settlement snapshot.
+pub const KIND_ST8_COMPUTE_SETTLEMENT: u32 = 49814;
 
 /// All registered kind constants — used for duplicate detection and iteration.
 pub const ALL_KINDS: &[u32] = &[
@@ -785,6 +801,14 @@ pub const ALL_KINDS: &[u32] = &[
     KIND_ST8_DECISION_PROPOSAL,
     KIND_ST8_GOVERNANCE_APPROVAL,
     KIND_ST8_LEDGER_ENTRY,
+    KIND_ST8_COMPUTE_PRICING,
+    KIND_ST8_COMPUTE_CAPABILITY,
+    KIND_ST8_COMPUTE_LEDGER_ENTRY,
+    KIND_ST8_COMPUTE_SETTLEMENT_ENTRY,
+    KIND_ST8_COMPUTE_JOB,
+    KIND_ST8_COMPUTE_RECEIPT,
+    KIND_ST8_COMPUTE_DISPUTE,
+    KIND_ST8_COMPUTE_SETTLEMENT,
 ];
 
 /// Returns `true` if `kind` is in the ephemeral range (20000–29999).
@@ -859,6 +883,8 @@ pub const fn is_relay_only_kind(kind: u32) -> bool {
             | KIND_THREAD_SUMMARY
             | KIND_WINDOW_BOUNDS
             | KIND_ST8_LEDGER_ENTRY
+            | KIND_ST8_COMPUTE_LEDGER_ENTRY
+            | KIND_ST8_COMPUTE_SETTLEMENT_ENTRY
     )
 }
 
@@ -886,6 +912,12 @@ const _: () = assert!(is_parameterized_replaceable(KIND_EVENT_REMINDER)); // 303
 const _: () = assert!(is_parameterized_replaceable(KIND_DM_VISIBILITY)); // 30622 ∈ 30000–39999
 const _: () = assert!(is_parameterized_replaceable(KIND_ST8_GOVERNANCE_POLICY));
 const _: () = assert!(is_parameterized_replaceable(KIND_ST8_LEDGER_ENTRY));
+const _: () = assert!(is_parameterized_replaceable(KIND_ST8_COMPUTE_PRICING));
+const _: () = assert!(is_parameterized_replaceable(KIND_ST8_COMPUTE_CAPABILITY));
+const _: () = assert!(is_parameterized_replaceable(KIND_ST8_COMPUTE_LEDGER_ENTRY));
+const _: () = assert!(is_parameterized_replaceable(
+    KIND_ST8_COMPUTE_SETTLEMENT_ENTRY
+));
 const _: () = assert!(is_parameterized_replaceable(KIND_PROJECT)); // 30621 ∈ 30000–39999
 const _: () = assert!(is_parameterized_replaceable(KIND_THREAD_SUMMARY)); // 39005 ∈ 30000–39999
 const _: () = assert!(is_parameterized_replaceable(KIND_WINDOW_BOUNDS)); // 39006 ∈ 30000–39999

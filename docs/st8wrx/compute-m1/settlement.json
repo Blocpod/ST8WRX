@@ -1,0 +1,22 @@
+{
+  "id": "9b382ae092246eb769e1966398778101cf66db9fb92fd2d2a1d45d7b08faa4ad",
+  "pubkey": "56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41",
+  "created_at": 1787584657,
+  "kind": 49814,
+  "tags": [
+    [
+      "a",
+      "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1"
+    ],
+    [
+      "d",
+      "ae9837d81d353852e11210be0539a538d1dfc0a2933d9cef995bfa384f9fb3e3"
+    ],
+    [
+      "st8-settlement",
+      "ae9837d81d353852e11210be0539a538d1dfc0a2933d9cef995bfa384f9fb3e3"
+    ]
+  ],
+  "content": "{\"project\":\"30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1\",\"period_start\":1787583600,\"period_end\":1787587200,\"receipt_ids\":[[21,245,45,210,27,144,195,72,254,201,101,99,217,156,211,105,131,218,176,215,153,210,41,26,144,116,161,51,57,174,249,15]],\"disputed_receipt_ids\":[],\"receipt_merkle_root\":[149,188,110,213,177,183,65,251,73,81,52,2,102,45,36,43,147,249,99,171,9,247,137,39,237,126,140,184,151,47,20,99],\"balances\":[{\"provider\":\"nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06\",\"node_owner_id\":\"9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5\",\"earned_sats\":6,\"receipt_count\":1}],\"total_sats\":6}",
+  "sig": "f287c468a0ad95307fb19ec7226fbc86e97ea0bfb29f0a95e6d94851d4a80fc2d241c14637fa3abbd3cc5e5c9816920ef8b73b9d824e76b34231bc7f0e6d8342"
+}

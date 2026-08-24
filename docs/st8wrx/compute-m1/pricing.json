@@ -1,0 +1,26 @@
+{
+  "id": "be295613a5d2131890d284eb5a30b7be93e7b21bfa47372d8a38b8dc08d1308c",
+  "pubkey": "d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06",
+  "created_at": 1787573574,
+  "kind": 30626,
+  "tags": [
+    [
+      "d",
+      "58682d027ed81ed4236d43033aa622a3169e3273c787c9965bab534b698fd8ef"
+    ],
+    [
+      "a",
+      "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1"
+    ],
+    [
+      "st8-node",
+      "9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5"
+    ],
+    [
+      "st8-pricing-version",
+      "st8-compute-m1-live-v2"
+    ]
+  ],
+  "content": "{\"project\":\"30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1\",\"provider\":\"nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06\",\"node_owner_id\":\"9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5\",\"version\":\"st8-compute-m1-live-v2\",\"fixed_sats\":1,\"rates\":[{\"meter\":\"InputTokens\",\"units_per_rate\":1000,\"rate_sats\":2},{\"meter\":\"OutputTokens\",\"units_per_rate\":1000,\"rate_sats\":5},{\"meter\":\"WallTimeMs\",\"units_per_rate\":1000,\"rate_sats\":1}],\"failed_jobs_billable\":false}",
+  "sig": "74516f726b7ac3966074949ac0ff5147216120ed4f423c9d2ca76ae8772829ffccf6ef078e3ed9dc80002464ec54a05d9226a52ed410c330143d5f1129a694ec"
+}

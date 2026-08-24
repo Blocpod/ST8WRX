@@ -1,0 +1,24 @@
+[package]
+name = "st8-compute-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Signed Buzz/Mesh compute receipt and settlement verification for ST8WRX"
+
+[dependencies]
+buzz-core = { workspace = true }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
+nostr = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+st8-compute-protocol = { workspace = true }
+st8-bsv-provenance = { workspace = true }
+st8-contribution-engine = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+buzz-sdk = { workspace = true }
