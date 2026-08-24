@@ -89,10 +89,12 @@ async fn run() -> anyhow::Result<()> {
             let wallet_url = wallet_url
                 .or_else(|| std::env::var("ST8_WALLET_URL").ok())
                 .context("ST8_WALLET_URL or --wallet-url is required")?;
-            let mut config = DbConfig::default();
-            config.database_url = database_url;
-            config.max_connections = 2;
-            config.min_connections = 1;
+            let config = DbConfig {
+                database_url,
+                max_connections: 2,
+                min_connections: 1,
+                ..DbConfig::default()
+            };
             let db = Db::new(&config).await?;
             let timeout = Duration::from_secs(observation_timeout_secs.clamp(30, 3_600));
             let worker_id = format!(

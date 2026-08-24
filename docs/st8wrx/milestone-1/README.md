@@ -1,50 +1,36 @@
-# Milestone 1 contribution handoff
+# Milestone 1 live contribution receipt
 
-These files are the public, signed pre-transaction state for the first real
-ST8WRX contribution slice. The evidence event names Git commit
-`789f66d370f58a4910d43dc50c8e73e4c8bb5c6b`, the repository's independent
-foundation commit. It is scoped by a signed Buzz NIP-MP project event and NIP-34
-repository coordinate.
+This directory contains both the historical deterministic proposal fixture and
+the completed live Milestone 1 receipt. The fixture files (`proposal.json`,
+`intent.json`, and `prepared.json`) remain useful test vectors but use ephemeral
+public identities and are not the live milestone proof.
 
-- `proposal.json` preserves the signed project event, signed Git evidence, the
-  two-founder policy, and two independently signed governance approvals.
-- `intent.json` records the exact decision intent and unsigned Nostr event
-  template each founder signed.
-- `prepared.json` is the independently verified contribution, 1,000 CU award,
-  project-scoped Merkle proof, and exact BSV testnet locking script waiting for
-  an external wallet.
+The authoritative artifact is [`live-receipt.json`](live-receipt.json). It was
+created from real signed ST8WRX runtime activity and real persistent project and
+governance identities.
 
-No private key, seed phrase, WIF, `nsec`, or wallet credential is present. The
-fixture generator creates ephemeral Nostr keys in memory and writes only signed
-public events. It is a milestone evidence fixture, not a production identity or
-governance workflow.
+## Live identifiers
 
-## Stable identifiers
+- Project: `30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1`
+- Contributor: `nostr:b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1`
+- Contribution: `18f2ef177e93c5e51035de80b50b93e11a482fad8dca92c4b5692f3ebf629e9d`
+- Contribution Units: `1000`
+- Approver 1: `nostr:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41`
+- Approver 2: `nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06`
+- Contribution snapshot: `9eca155f7430abe34cd149c2519215fe3092c7feab5c1da863de6f72f6e63943`
+- Project snapshot: `e91b26a0532985937300f2b17ab0ff9f320a5560959e9e733944b8db997f929f`
+- Merkle root: `b916db8a3f566df63afdd981eb3031503f6205e9cf3222aa5e70c8deca584b2c`
+- BSV testnet txid: `37ad82e23016d2faf45d9ca464025c9ca99c7e6ddf0e09de796e544c67970fff`
+- Block height: `1754464`
+- Verification: `mined_spv_verified`
 
-- Contribution ID:
-  `ada2ce7479748cb4eb931e874e05264ecc2cbab841334e250d6ad15a4c5463c9`
-- Governance intent:
-  `5130b6ca161540260178aa31c484c2d16e451c90c13b20680bcc15580c566980`
-- Snapshot ID:
-  `c6f4774e9425c8e3cc813f23f873acf5b8d6373fa0325e397ec8a34e097771a2`
-- Merkle root:
-  `a5d86d22589fe044d4e218d0bc909daa5d57d75d29227bddfd1f7f88de6ace26`
-
-## Verify and finish
-
-Re-running `prepare` must reproduce the same IDs, root, and locking script:
+## Verify
 
 ```bash
-cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
-  intent --input docs/st8wrx/milestone-1/proposal.json \
-  --output /tmp/st8wrx-intent.json
-cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
-  prepare --input docs/st8wrx/milestone-1/proposal.json \
-  --output /tmp/st8wrx-prepared.json
+target/debug/st8-anchor-worker verify \
+  --receipt docs/st8wrx/milestone-1/live-receipt.json
 ```
 
-The remaining live step requires a funded external BRC-100 testnet wallet to
-create and sign a transaction containing the exact `locking_script_hex`, then an
-ARC-compatible broadcaster. Put only the resulting public transaction material
-in `external-result.json`; never provide a private key. Run `finalize` and
-`verify` as documented in `../BSV-TOOLING.md`.
+The verifier rejects altered project scope, forged approvals, changed CU or
+snapshot state, invalid Merkle siblings/root, changed raw transaction bytes,
+txid substitution, altered commitment payload, and forged mined BEEF/BUMP.

@@ -83,9 +83,9 @@ cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
 cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
   prepare --input proposal.json --output prepared.json
 
-# 4. Ask a BRC-100 wallet to create/sign with noSend, then broadcast through ARC.
-#    Store the raw transaction, optional Atomic BEEF, output index, and ARC result
-#    in external-result.json. No private key is passed to ST8WRX.
+# 4. Ask a BRC-100 wallet to create/sign with noSend, then broadcast through a
+#    public BSV provider. Store raw transaction, Atomic BEEF, output index, and
+#    provider result in external-result.json. No private key enters ST8WRX.
 
 # 5. Bind and persist the independently verified receipt.
 cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
@@ -97,9 +97,9 @@ cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
   verify --receipt receipt.json
 ```
 
-The checked-in [Milestone 1 handoff](docs/st8wrx/milestone-1/README.md) grounds
-the first 1,000-CU contribution in the independent repository foundation commit
-and includes its signed two-founder approvals and wallet-ready testnet script.
+The checked-in [Milestone 1 receipt](docs/st8wrx/milestone-1/README.md) grounds a
+real 1,000-CU contribution in signed ST8WRX activity, includes two authorized
+governance approvals, and independently verifies its mined BSV testnet anchor.
 
 See [BSV tooling](docs/st8wrx/BSV-TOOLING.md) for current standards and the
 JSON contracts.

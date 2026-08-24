@@ -38,11 +38,13 @@ pub struct BsvNetworkEvidence {
     pub observed_at: DateTime<Utc>,
     /// Raw transaction independently returned by WhatsOnChain.
     pub woc_raw_transaction_hex: String,
+    /// Mined BEEF/BUMP independently returned by WhatsOnChain, when available.
+    pub woc_beef_hex: Option<String>,
     /// Independent WhatsOnChain transaction details.
     pub woc_transaction: Value,
-    /// ARC submission response.
+    /// Broadcast-provider submission response, normalized to ARC status fields.
     pub arc_submission: Value,
-    /// Latest independently fetched ARC status response.
+    /// Latest independently fetched network status, normalized to ARC fields.
     pub arc_status: Value,
     /// WhatsOnChain block details used to verify the header and Merkle root.
     pub woc_block: Option<Value>,
@@ -97,6 +99,18 @@ impl PersistedContributionReceipt {
         }
         let arc_state = json_string(&self.network.arc_status, "txStatus")?;
         let derived_state = if arc_state == "MINED" {
+            let woc_beef_hex = self
+                .network
+                .woc_beef_hex
+                .as_deref()
+                .context("mined receipt is missing WhatsOnChain BEEF")?;
+            let woc_path = verified_woc_beef_path(transaction, woc_beef_hex)?;
+            if !woc_path
+                .to_hex()?
+                .eq_ignore_ascii_case(json_string(&self.network.arc_status, "merklePath")?)
+            {
+                return Err(anyhow!("persisted mined BEEF path mismatch"));
+            }
             verify_mined_spv(
                 &txid_hex,
                 &self.network.arc_status,
@@ -192,7 +206,10 @@ impl AnchorServices {
                     version: None,
                     labels: vec!["st8wrx-milestone-1".into()],
                     options: Some(CreateActionOptions {
-                        sign_and_process: BooleanDefaultTrue(Some(true)),
+                        // Leave the default implicit: external wallets reserve an explicit
+                        // `true` for their administrative originator, while still defaulting
+                        // ordinary application requests to wallet-managed signing.
+                        sign_and_process: BooleanDefaultTrue(None),
                         accept_delayed_broadcast: BooleanDefaultTrue(Some(false)),
                         trust_self: None,
                         known_txids: Vec::new(),
@@ -247,7 +264,8 @@ impl AnchorServices {
         Ok(signed)
     }
 
-    /// Submits exact signed bytes to testnet ARC and rejects any txid substitution.
+    /// Submits exact signed bytes to testnet ARC, falling back to the official
+    /// WhatsOnChain testnet broadcaster when ARC requires unavailable credentials.
     pub async fn broadcast(&self, transaction: &SignedAnchorTransaction) -> anyhow::Result<Value> {
         let expected_txid = hex::encode(transaction.txid);
         let response = self
@@ -262,11 +280,12 @@ impl AnchorServices {
         let bytes = response.bytes().await?;
         let body: Value = serde_json::from_slice(&bytes)
             .with_context(|| format!("ARC returned non-JSON status {status}"))?;
-        if !status.is_success() {
-            return Err(anyhow!("ARC rejected transaction ({status}): {body}"));
+        if status.is_success() {
+            verify_json_txid(&body, &expected_txid)?;
+            return Ok(with_provider(body, "TAAL ARC testnet"));
         }
-        verify_json_txid(&body, &expected_txid)?;
-        Ok(body)
+        self.broadcast_with_woc(transaction, status.as_u16(), body)
+            .await
     }
 
     /// Polls ARC plus independent WhatsOnChain data until network-seen or mined.
@@ -289,12 +308,35 @@ impl AnchorServices {
             let details = self
                 .get_json(format!("{}/tx/hash/{txid}", self.woc_url))
                 .await;
-            if let (Ok(arc_status), Ok(raw), Ok(woc_transaction)) = (arc_status, raw, details) {
+            if let (Ok(raw), Ok(woc_transaction)) = (raw, details) {
                 if raw.status().is_success() {
                     let woc_raw_transaction_hex = raw.text().await?.trim().to_owned();
                     if hex::decode(&woc_raw_transaction_hex)? != transaction.raw_transaction {
                         return Err(anyhow!("WhatsOnChain returned different transaction bytes"));
                     }
+                    let (arc_status, woc_beef_hex) = match arc_status {
+                        Ok(value) if verify_json_txid(&value, &txid).is_ok() => (value, None),
+                        _ if json_u64(&woc_transaction, "confirmations").unwrap_or(0) > 0 => {
+                            let beef_response = self
+                                .client
+                                .get(format!("{}/tx/{txid}/beef", self.woc_url))
+                                .send()
+                                .await?;
+                            if beef_response.status().is_success() {
+                                let beef_hex = beef_response.text().await?.trim().to_owned();
+                                let status = woc_mined_status(
+                                    transaction,
+                                    &txid,
+                                    &woc_transaction,
+                                    &beef_hex,
+                                )?;
+                                (status, Some(beef_hex))
+                            } else {
+                                (woc_seen_status(&txid, &woc_transaction), None)
+                            }
+                        }
+                        _ => (woc_seen_status(&txid, &woc_transaction), None),
+                    };
                     let status = json_string(&arc_status, "txStatus")?.to_owned();
                     let network_seen = matches!(
                         status.as_str(),
@@ -318,6 +360,7 @@ impl AnchorServices {
                         let evidence = BsvNetworkEvidence {
                             observed_at: Utc::now(),
                             woc_raw_transaction_hex,
+                            woc_beef_hex,
                             woc_transaction,
                             arc_submission,
                             arc_status,
@@ -347,7 +390,56 @@ impl AnchorServices {
         if !status.is_success() {
             return Err(anyhow!("network API returned {status}: {value}"));
         }
-        Ok(value)
+        Ok(sanitize_json_for_postgres(value))
+    }
+
+    async fn broadcast_with_woc(
+        &self,
+        transaction: &SignedAnchorTransaction,
+        arc_status: u16,
+        arc_error: Value,
+    ) -> anyhow::Result<Value> {
+        let expected_txid = hex::encode(transaction.txid);
+        if let Ok(existing) = self
+            .get_json(format!("{}/tx/hash/{expected_txid}", self.woc_url))
+            .await
+        {
+            verify_json_txid(&existing, &expected_txid)?;
+            return Ok(woc_submission(
+                &expected_txid,
+                true,
+                arc_status,
+                arc_error,
+                existing,
+            ));
+        }
+        let response = self
+            .client
+            .post(format!("{}/tx/raw", self.woc_url))
+            .json(&serde_json::json!({
+                "txhex": hex::encode(&transaction.raw_transaction)
+            }))
+            .send()
+            .await
+            .context("WhatsOnChain testnet submission failed")?;
+        let status = response.status();
+        let response_text = response.text().await?;
+        if !status.is_success() {
+            return Err(anyhow!(
+                "ARC rejected transaction ({arc_status}): {arc_error}; WhatsOnChain rejected transaction ({status}): {response_text}"
+            ));
+        }
+        let observed_txid = response_text.trim().trim_matches('"');
+        if !observed_txid.eq_ignore_ascii_case(&expected_txid) {
+            return Err(anyhow!("WhatsOnChain broadcast txid mismatch"));
+        }
+        Ok(woc_submission(
+            &expected_txid,
+            false,
+            arc_status,
+            arc_error,
+            Value::String(response_text),
+        ))
     }
 }
 
@@ -394,12 +486,18 @@ pub fn finalize_receipt(
     network: BsvNetworkEvidence,
 ) -> anyhow::Result<PersistedContributionReceipt> {
     let status = json_string(&network.arc_status, "txStatus")?.to_owned();
+    let provider = network
+        .arc_submission
+        .get("provider")
+        .and_then(Value::as_str)
+        .unwrap_or("TAAL ARC testnet")
+        .to_owned();
     let contribution = prepared.finalize(
         transaction,
         BroadcastReceipt {
             accepted: true,
             status,
-            provider: "TAAL ARC testnet".into(),
+            provider,
         },
     )?;
     if network.arc_submission != arc_submission {
@@ -412,6 +510,107 @@ pub fn finalize_receipt(
     };
     receipt.verify()?;
     Ok(receipt)
+}
+
+fn with_provider(mut response: Value, provider: &str) -> Value {
+    if let Some(object) = response.as_object_mut() {
+        object.insert("provider".into(), Value::String(provider.into()));
+    }
+    response
+}
+
+fn woc_submission(
+    txid: &str,
+    already_known: bool,
+    arc_status: u16,
+    arc_error: Value,
+    response: Value,
+) -> Value {
+    serde_json::json!({
+        "txid": txid,
+        "txStatus": "SEEN_ON_NETWORK",
+        "provider": "WhatsOnChain testnet",
+        "alreadyKnown": already_known,
+        "arcAttempt": {"status": arc_status, "response": arc_error},
+        "providerResponse": response,
+    })
+}
+
+fn woc_seen_status(txid: &str, transaction: &Value) -> Value {
+    serde_json::json!({
+        "txid": txid,
+        "txStatus": "SEEN_ON_NETWORK",
+        "provider": "WhatsOnChain testnet",
+        "confirmations": transaction.get("confirmations").cloned().unwrap_or(Value::from(0)),
+        "blockHash": transaction.get("blockhash").cloned().unwrap_or(Value::Null),
+        "blockHeight": transaction.get("blockheight").cloned().unwrap_or(Value::Null),
+    })
+}
+
+fn woc_mined_status(
+    transaction: &SignedAnchorTransaction,
+    txid: &str,
+    details: &Value,
+    beef_hex: &str,
+) -> anyhow::Result<Value> {
+    let path = verified_woc_beef_path(transaction, beef_hex)?;
+    let block_height = json_u64(details, "blockheight")?;
+    if u64::from(path.block_height) != block_height {
+        return Err(anyhow!("WhatsOnChain BEEF block height mismatch"));
+    }
+    Ok(serde_json::json!({
+        "txid": txid,
+        "txStatus": "MINED",
+        "provider": "WhatsOnChain testnet BEEF",
+        "merklePath": path.to_hex()?,
+        "blockHash": json_string(details, "blockhash")?,
+        "blockHeight": block_height,
+    }))
+}
+
+fn verified_woc_beef_path(
+    transaction: &SignedAnchorTransaction,
+    beef_hex: &str,
+) -> anyhow::Result<MerklePath> {
+    let beef = Beef::from_hex(beef_hex).context("invalid WhatsOnChain BEEF")?;
+    let expected_txid = hex::encode(transaction.txid);
+    let beef_tx = beef
+        .txs
+        .iter()
+        .find(|candidate| candidate.txid.eq_ignore_ascii_case(&expected_txid))
+        .context("WhatsOnChain BEEF omits subject transaction")?;
+    let raw = beef_tx
+        .tx
+        .as_ref()
+        .context("WhatsOnChain BEEF subject is txid-only")?
+        .to_bytes()?;
+    if raw != transaction.raw_transaction {
+        return Err(anyhow!("WhatsOnChain BEEF subject bytes mismatch"));
+    }
+    beef.bumps
+        .get(
+            beef_tx
+                .bump_index
+                .context("WhatsOnChain BEEF subject has no BUMP")?,
+        )
+        .cloned()
+        .context("WhatsOnChain BEEF references a missing BUMP")
+}
+
+fn sanitize_json_for_postgres(value: Value) -> Value {
+    match value {
+        Value::String(text) => Value::String(text.replace('\0', "\\0")),
+        Value::Array(values) => {
+            Value::Array(values.into_iter().map(sanitize_json_for_postgres).collect())
+        }
+        Value::Object(values) => Value::Object(
+            values
+                .into_iter()
+                .map(|(key, value)| (key, sanitize_json_for_postgres(value)))
+                .collect(),
+        ),
+        scalar => scalar,
+    }
 }
 
 fn verify_network_material(

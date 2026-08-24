@@ -962,12 +962,14 @@ impl ContributionProposal {
         )?;
         let snapshot = ContributionSnapshot::new(claim_context.record.clone(), decision)?;
         PreparedContributionAnchor::new(
-            project_context,
-            self.evidence_events,
-            claim_context,
-            proposal,
-            self.approval_events,
-            policy_context,
+            VerifiedContributionMaterial {
+                project_context,
+                evidence_events: self.evidence_events,
+                claim: claim_context,
+                decision_proposal: proposal,
+                approval_events: self.approval_events,
+                governance_policy: policy_context,
+            },
             snapshot,
             BsvNetwork::Testnet,
         )
@@ -1005,6 +1007,23 @@ impl ContributionProposal {
     }
 }
 
+/// Verified signed inputs used to build deterministic contribution anchor state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedContributionMaterial {
+    /// Signed project context.
+    pub project_context: BuzzProjectContext,
+    /// Full signed contribution evidence.
+    pub evidence_events: Vec<Event>,
+    /// Contributor-signed claim and derived deterministic record.
+    pub claim: ContributionClaimContext,
+    /// Authorized signed proposal approvals bind.
+    pub decision_proposal: GovernanceDecisionProposal,
+    /// Full signed project-governance approval events.
+    pub approval_events: Vec<Event>,
+    /// Project-owner-signed governance policy.
+    pub governance_policy: GovernancePolicyContext,
+}
+
 /// Fully verified contribution state waiting for an external wallet and broadcaster.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PreparedContributionAnchor {
@@ -1035,41 +1054,29 @@ pub struct PreparedContributionAnchor {
 impl PreparedContributionAnchor {
     /// Builds deterministic anchor material without wallet or network I/O.
     pub fn new(
-        project_context: BuzzProjectContext,
-        evidence_events: Vec<Event>,
-        claim: ContributionClaimContext,
-        decision_proposal: GovernanceDecisionProposal,
-        approval_events: Vec<Event>,
-        governance_policy: GovernancePolicyContext,
+        material: VerifiedContributionMaterial,
         snapshot: ContributionSnapshot,
         network: BsvNetwork,
     ) -> Result<Self, EngineError> {
         let project_snapshot = ProjectLedgerSnapshot::new(vec![snapshot.clone()])?;
-        Self::new_with_project_snapshot(
+        Self::new_with_project_snapshot(material, snapshot, project_snapshot, network)
+    }
+
+    /// Builds deterministic anchor material for a full project ledger snapshot.
+    pub fn new_with_project_snapshot(
+        material: VerifiedContributionMaterial,
+        snapshot: ContributionSnapshot,
+        project_snapshot: ProjectLedgerSnapshot,
+        network: BsvNetwork,
+    ) -> Result<Self, EngineError> {
+        let VerifiedContributionMaterial {
             project_context,
             evidence_events,
             claim,
             decision_proposal,
             approval_events,
             governance_policy,
-            snapshot,
-            project_snapshot,
-            network,
-        )
-    }
-
-    /// Builds deterministic anchor material for a full project ledger snapshot.
-    pub fn new_with_project_snapshot(
-        project_context: BuzzProjectContext,
-        evidence_events: Vec<Event>,
-        claim: ContributionClaimContext,
-        decision_proposal: GovernanceDecisionProposal,
-        approval_events: Vec<Event>,
-        governance_policy: GovernancePolicyContext,
-        snapshot: ContributionSnapshot,
-        project_snapshot: ProjectLedgerSnapshot,
-        network: BsvNetwork,
-    ) -> Result<Self, EngineError> {
+        } = material;
         if network != BsvNetwork::Testnet {
             return Err(EngineError::FirstSliceRequiresTestnet);
         }
@@ -1770,12 +1777,14 @@ mod tests {
             .expect("decision");
         let snapshot = ContributionSnapshot::new(record, decision).expect("snapshot");
         let prepared = PreparedContributionAnchor::new(
-            context,
-            vec![event],
-            claim,
-            proposal,
-            approvals,
-            policy_context,
+            VerifiedContributionMaterial {
+                project_context: context,
+                evidence_events: vec![event],
+                claim,
+                decision_proposal: proposal,
+                approval_events: approvals,
+                governance_policy: policy_context,
+            },
             snapshot,
             BsvNetwork::Testnet,
         )

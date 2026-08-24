@@ -19,6 +19,7 @@ use st8_contribution_engine::{
     BuzzProjectContext, ContributionClaimBody, ContributionClaimContext, ContributionSnapshot,
     EngineError, GovernanceDecisionIntent, GovernanceDecisionProposal, GovernancePolicy,
     GovernancePolicyContext, PreparedContributionAnchor, ProjectLedgerSnapshot,
+    VerifiedContributionMaterial,
 };
 use st8_contribution_protocol::DecisionStatus;
 
@@ -184,12 +185,14 @@ pub async fn handle_approval(
         snapshots.push(snapshot.clone());
         let project_snapshot = ProjectLedgerSnapshot::new(snapshots)?;
         let prepared = PreparedContributionAnchor::new_with_project_snapshot(
-            project_context.clone(),
-            evidence_events.clone(),
-            claim_context.clone(),
-            decision_proposal.clone(),
-            approval_events.clone(),
-            policy_context.clone(),
+            VerifiedContributionMaterial {
+                project_context: project_context.clone(),
+                evidence_events: evidence_events.clone(),
+                claim: claim_context.clone(),
+                decision_proposal: decision_proposal.clone(),
+                approval_events: approval_events.clone(),
+                governance_policy: policy_context.clone(),
+            },
             snapshot.clone(),
             project_snapshot.clone(),
             st8_bsv_provenance::BsvNetwork::Testnet,
@@ -300,20 +303,22 @@ pub async fn handle_approval(
         emit_ledger_projection(
             tenant,
             state,
-            &entry.contribution_id,
-            &entry.project_id,
-            &entry.contributor_pubkey,
-            &entry.status,
-            if entry.project_snapshot.is_some() {
-                "queued"
-            } else {
-                "not_applicable"
+            LedgerProjectionInput {
+                contribution_id: &entry.contribution_id,
+                project_id: &entry.project_id,
+                contributor_pubkey: &entry.contributor_pubkey,
+                status: &entry.status,
+                anchor_state: if entry.project_snapshot.is_some() {
+                    "queued"
+                } else {
+                    "not_applicable"
+                },
+                ledger_projection: &entry.ledger_projection,
+                project_snapshot_id: project_snapshot
+                    .as_ref()
+                    .map(ProjectLedgerSnapshot::id)
+                    .transpose()?,
             },
-            &entry.ledger_projection,
-            project_snapshot
-                .as_ref()
-                .map(ProjectLedgerSnapshot::id)
-                .transpose()?,
         )
         .await?;
     }
@@ -438,13 +443,15 @@ pub async fn reconcile_ledger_events(state: &Arc<AppState>) -> anyhow::Result<us
                     emit_ledger_projection(
                         &tenant,
                         state,
-                        &record.contribution_id,
-                        &record.project_id,
-                        &record.contributor_pubkey,
-                        &record.status,
-                        &record.anchor_state,
-                        &record.ledger_projection,
-                        snapshot_id,
+                        LedgerProjectionInput {
+                            contribution_id: &record.contribution_id,
+                            project_id: &record.project_id,
+                            contributor_pubkey: &record.contributor_pubkey,
+                            status: &record.status,
+                            anchor_state: &record.anchor_state,
+                            ledger_projection: &record.ledger_projection,
+                            project_snapshot_id: snapshot_id,
+                        },
                     )
                     .await?;
                     repaired += 1;
@@ -461,26 +468,34 @@ pub async fn reconcile_ledger_events(state: &Arc<AppState>) -> anyhow::Result<us
     Ok(repaired)
 }
 
+struct LedgerProjectionInput<'a> {
+    contribution_id: &'a [u8],
+    project_id: &'a str,
+    contributor_pubkey: &'a [u8],
+    status: &'a str,
+    anchor_state: &'a str,
+    ledger_projection: &'a serde_json::Value,
+    project_snapshot_id: Option<[u8; 32]>,
+}
+
 async fn emit_ledger_projection(
     tenant: &TenantContext,
     state: &Arc<AppState>,
-    contribution_id: &[u8],
-    project_id: &str,
-    contributor_pubkey: &[u8],
-    status: &str,
-    anchor_state: &str,
-    ledger_projection: &serde_json::Value,
-    project_snapshot_id: Option<[u8; 32]>,
+    input: LedgerProjectionInput<'_>,
 ) -> anyhow::Result<()> {
-    let contribution_hex = hex::encode(contribution_id);
-    let contributor_hex = hex::encode(contributor_pubkey);
-    let content =
-        projection_content(ledger_projection, anchor_state, project_snapshot_id).to_string();
+    let contribution_hex = hex::encode(input.contribution_id);
+    let contributor_hex = hex::encode(input.contributor_pubkey);
+    let content = projection_content(
+        input.ledger_projection,
+        input.anchor_state,
+        input.project_snapshot_id,
+    )
+    .to_string();
     let tags = [
         Tag::parse(["d", contribution_hex.as_str()])?,
-        Tag::parse(["a", project_id])?,
+        Tag::parse(["a", input.project_id])?,
         Tag::parse(["p", contributor_hex.as_str()])?,
-        Tag::parse(["st8-status", status])?,
+        Tag::parse(["st8-status", input.status])?,
     ];
     let event = EventBuilder::new(Kind::Custom(KIND_ST8_LEDGER_ENTRY as u16), content)
         .tags(tags)
