@@ -857,7 +857,7 @@ test("imported-key users can skip out of harness setup", async ({ page }) => {
 
   // Reaching community onboarding proves machine onboarding completed rather
   // than staying pinned on the setup step.
-  await expect(page.getByText("Join or create a community")).toBeVisible();
+  await expect(page.getByText("Connect to a community")).toBeVisible();
   await expect(page.getByTestId("onboarding-page-2")).toHaveCount(0);
 });
 

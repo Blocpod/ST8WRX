@@ -1158,7 +1158,7 @@ test.describe("community rail", () => {
       .getByRole("menuitem", { name: "Leave community" })
       .click();
 
-    await expect(page.getByText("Join or create a community")).toBeVisible();
+    await expect(page.getByText("Connect to a community")).toBeVisible();
     await expect(page.getByTestId("welcome-setup-back")).toHaveCount(0);
     await expect(page.getByTestId("community-choice-join")).toBeVisible();
     await expect
@@ -1181,7 +1181,7 @@ test.describe("community rail", () => {
     });
     await relaunchPage.goto("/");
     await expect(
-      relaunchPage.getByText("Join or create a community"),
+      relaunchPage.getByText("Connect to a community"),
     ).toBeVisible();
     await expect(relaunchPage.getByTestId("welcome-setup-back")).toHaveCount(0);
     await expect
@@ -1223,7 +1223,7 @@ test.describe("community rail", () => {
     await expect(error).toContainText(
       "Could not safely leave community: queue unavailable",
     );
-    await expect(page.getByText("Join or create a community")).toHaveCount(0);
+    await expect(page.getByText("Connect to a community")).toHaveCount(0);
     await expect(page.getByTestId("community-switch-gate")).toHaveCount(0);
     await expect(page.getByTestId("community-apply-error-retry")).toBeVisible();
     await expect(
@@ -1508,8 +1508,18 @@ test.describe("community rail", () => {
         }),
       );
     }, `community-rail-button-${COMMUNITY_B.id}`);
+    await expect(page.getByTestId("community-rail-drag-overlay")).toBeVisible();
     // ArrowUp moves the active item one slot up.
     await page.keyboard.press("ArrowUp");
+    await expect
+      .poll(async () => {
+        const [boxA, boxB] = await Promise.all([
+          buttonA.boundingBox(),
+          buttonB.boundingBox(),
+        ]);
+        return boxA !== null && boxB !== null && boxB.y < boxA.y;
+      })
+      .toBe(true);
     // Space drops the item — same synthetic dispatch for consistency.
     await page.evaluate((testId) => {
       const el = document.querySelector(`[data-testid="${testId}"]`);
@@ -1523,6 +1533,9 @@ test.describe("community rail", () => {
         }),
       );
     }, `community-rail-button-${COMMUNITY_B.id}`);
+    await expect(page.getByTestId("community-rail-drag-overlay")).toHaveCount(
+      0,
+    );
 
     // The community list in localStorage must now be [B, A].
     await expect
