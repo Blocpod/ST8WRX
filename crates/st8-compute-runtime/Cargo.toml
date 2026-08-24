@@ -1,0 +1,34 @@
+[package]
+name = "st8-compute-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Measured MeshLLM execution and signed ST8 Compute receipt publisher"
+
+[[bin]]
+name = "st8-compute"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+buzz-core = { workspace = true }
+buzz-ws-client = { workspace = true }
+chrono = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+hex = { workspace = true }
+mesh-llm-host-runtime = { git = "https://github.com/Mesh-LLM/mesh-llm.git", tag = "v0.75.1", package = "mesh-llm-host-runtime", default-features = false, features = ["dynamic-native-runtime"] }
+mesh-llm-sdk = { git = "https://github.com/Mesh-LLM/mesh-llm.git", tag = "v0.75.1", package = "mesh-llm-sdk", default-features = false, features = ["serving"] }
+mesh-llm-system = { git = "https://github.com/Mesh-LLM/mesh-llm.git", tag = "v0.75.1", package = "mesh-llm-system" }
+nostr = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+st8-compute-engine = { workspace = true }
+st8-compute-protocol = { workspace = true }
+st8-contribution-engine = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+url = { workspace = true }

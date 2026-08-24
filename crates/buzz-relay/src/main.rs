@@ -559,6 +559,11 @@ async fn main() -> anyhow::Result<()> {
         Ok(_) => {}
         Err(error) => tracing::warn!(%error, "ST8 ledger event startup reconciliation failed"),
     }
+    match buzz_relay::handlers::compute::reconcile_ledger_events(&state).await {
+        Ok(count) if count > 0 => info!(count, "ST8 Compute ledger events reconciled"),
+        Ok(_) => {}
+        Err(error) => tracing::warn!(%error, "ST8 Compute startup reconciliation failed"),
+    }
     {
         let reconcile_state = Arc::clone(&state);
         let interval_secs = std::env::var("ST8_CONTRIBUTION_RECONCILE_INTERVAL_SECS")
@@ -593,6 +598,17 @@ async fn main() -> anyhow::Result<()> {
                     Err(error) => tracing::warn!(
                         %error,
                         "periodic ST8 ledger event reconciliation failed"
+                    ),
+                }
+                match buzz_relay::handlers::compute::reconcile_ledger_events(&reconcile_state).await
+                {
+                    Ok(count) if count > 0 => {
+                        info!(count, "ST8 Compute ledger events reconciled")
+                    }
+                    Ok(_) => {}
+                    Err(error) => tracing::warn!(
+                        %error,
+                        "periodic ST8 Compute ledger event reconciliation failed"
                     ),
                 }
             }

@@ -6,6 +6,8 @@ pub mod close;
 pub mod command_executor;
 /// Relay-operator community provisioning HTTP support.
 pub mod community_provisioning;
+/// ST8 Compute signed job and receipt projection into the durable ledger.
+pub mod compute;
 /// ST8WRX signed contribution projection into the durable ledger.
 pub mod contribution;
 /// NIP-45 COUNT handler.

@@ -21,9 +21,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use st8_bsv_provenance::{
-    transaction_id, verify_anchor_transaction, BroadcastReceipt, BsvNetwork,
+    transaction_id, verify_anchor_transaction, AnchorPayload, BroadcastReceipt, BsvNetwork,
     SignedAnchorTransaction,
 };
+use st8_compute_engine::{ComputeSettlementAnchorReceipt, PreparedComputeSettlementAnchor};
 use st8_contribution_engine::{ContributionAnchorReceipt, PreparedContributionAnchor};
 
 /// Default official TAAL ARC testnet endpoint.
@@ -74,70 +75,96 @@ impl PersistedContributionReceipt {
         if self.contribution.anchor_payload.network != BsvNetwork::Testnet {
             return Err(anyhow!("receipt is not a BSV testnet anchor"));
         }
-        let transaction = &self.contribution.transaction;
-        let raw_hex = hex::encode(&transaction.raw_transaction);
-        if !raw_hex.eq_ignore_ascii_case(&self.network.woc_raw_transaction_hex) {
-            return Err(anyhow!("independent raw transaction mismatch"));
-        }
-        let txid_hex = hex::encode(transaction.txid);
-        verify_json_txid(&self.network.woc_transaction, &txid_hex)?;
-        verify_json_txid(&self.network.arc_submission, &txid_hex)?;
-        verify_json_txid(&self.network.arc_status, &txid_hex)?;
-        let beef_bytes = transaction
-            .atomic_beef
-            .as_ref()
-            .context("receipt is missing Atomic BEEF")?;
-        let beef =
-            Beef::from_binary(&mut Cursor::new(beef_bytes)).context("invalid Atomic BEEF")?;
-        let beef_transaction = beef
-            .into_transaction()
-            .context("Atomic BEEF has no subject tx")?;
-        if beef_transaction.to_bytes()? != transaction.raw_transaction
-            || !beef_transaction.id()?.eq_ignore_ascii_case(&txid_hex)
-        {
-            return Err(anyhow!("Atomic BEEF subject transaction mismatch"));
-        }
-        let arc_state = json_string(&self.network.arc_status, "txStatus")?;
-        let derived_state = if arc_state == "MINED" {
-            let woc_beef_hex = self
-                .network
-                .woc_beef_hex
-                .as_deref()
-                .context("mined receipt is missing WhatsOnChain BEEF")?;
-            let woc_path = verified_woc_beef_path(transaction, woc_beef_hex)?;
-            if !woc_path
-                .to_hex()?
-                .eq_ignore_ascii_case(json_string(&self.network.arc_status, "merklePath")?)
-            {
-                return Err(anyhow!("persisted mined BEEF path mismatch"));
-            }
-            verify_mined_spv(
-                &txid_hex,
-                &self.network.arc_status,
-                &self.network.woc_transaction,
-                self.network
-                    .woc_block
-                    .as_ref()
-                    .context("mined receipt is missing block evidence")?,
-            )?;
-            "mined_spv_verified"
-        } else if matches!(
-            arc_state,
-            "ANNOUNCED_TO_NETWORK"
-                | "REQUESTED_BY_NETWORK"
-                | "SENT_TO_NETWORK"
-                | "ACCEPTED_BY_NETWORK"
-                | "SEEN_ON_NETWORK"
-        ) {
-            "seen_on_testnet"
-        } else {
-            return Err(anyhow!("ARC has not proved testnet network acceptance"));
-        };
-        if self.network.verification_state != derived_state {
-            return Err(anyhow!("stored BSV verification state was not derived"));
-        }
-        Ok(())
+        verify_transaction_network(&self.contribution.transaction, &self.network)
     }
+}
+
+/// Complete independently verifiable ST8 Compute settlement receipt.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PersistedComputeSettlementReceipt {
+    /// Wrapper schema version.
+    pub version: u16,
+    /// Signed compute receipts, settlement, commitment, and wallet transaction.
+    pub compute: ComputeSettlementAnchorReceipt,
+    /// Independently fetched public BSV testnet evidence.
+    pub network: BsvNetworkEvidence,
+}
+
+impl PersistedComputeSettlementReceipt {
+    /// Verifies compute provenance, settlement math, exact anchor bytes, and network/SPV state.
+    pub fn verify(&self) -> anyhow::Result<()> {
+        if self.version != 1 {
+            return Err(anyhow!("unsupported persisted compute receipt version"));
+        }
+        self.compute.verify()?;
+        verify_transaction_network(&self.compute.transaction, &self.network)
+    }
+}
+
+fn verify_transaction_network(
+    transaction: &SignedAnchorTransaction,
+    network: &BsvNetworkEvidence,
+) -> anyhow::Result<()> {
+    let raw_hex = hex::encode(&transaction.raw_transaction);
+    if !raw_hex.eq_ignore_ascii_case(&network.woc_raw_transaction_hex) {
+        return Err(anyhow!("independent raw transaction mismatch"));
+    }
+    let txid_hex = hex::encode(transaction.txid);
+    verify_json_txid(&network.woc_transaction, &txid_hex)?;
+    verify_json_txid(&network.arc_submission, &txid_hex)?;
+    verify_json_txid(&network.arc_status, &txid_hex)?;
+    let beef_bytes = transaction
+        .atomic_beef
+        .as_ref()
+        .context("receipt is missing Atomic BEEF")?;
+    let beef = Beef::from_binary(&mut Cursor::new(beef_bytes)).context("invalid Atomic BEEF")?;
+    let beef_transaction = beef
+        .into_transaction()
+        .context("Atomic BEEF has no subject tx")?;
+    if beef_transaction.to_bytes()? != transaction.raw_transaction
+        || !beef_transaction.id()?.eq_ignore_ascii_case(&txid_hex)
+    {
+        return Err(anyhow!("Atomic BEEF subject transaction mismatch"));
+    }
+    let arc_state = json_string(&network.arc_status, "txStatus")?;
+    let derived_state = if arc_state == "MINED" {
+        let woc_beef_hex = network
+            .woc_beef_hex
+            .as_deref()
+            .context("mined receipt is missing WhatsOnChain BEEF")?;
+        let woc_path = verified_woc_beef_path(transaction, woc_beef_hex)?;
+        if !woc_path
+            .to_hex()?
+            .eq_ignore_ascii_case(json_string(&network.arc_status, "merklePath")?)
+        {
+            return Err(anyhow!("persisted mined BEEF path mismatch"));
+        }
+        verify_mined_spv(
+            &txid_hex,
+            &network.arc_status,
+            &network.woc_transaction,
+            network
+                .woc_block
+                .as_ref()
+                .context("mined receipt is missing block evidence")?,
+        )?;
+        "mined_spv_verified"
+    } else if matches!(
+        arc_state,
+        "ANNOUNCED_TO_NETWORK"
+            | "REQUESTED_BY_NETWORK"
+            | "SENT_TO_NETWORK"
+            | "ACCEPTED_BY_NETWORK"
+            | "SEEN_ON_NETWORK"
+    ) {
+        "seen_on_testnet"
+    } else {
+        return Err(anyhow!("ARC has not proved testnet network acceptance"));
+    };
+    if network.verification_state != derived_state {
+        return Err(anyhow!("stored BSV verification state was not derived"));
+    }
+    Ok(())
 }
 
 /// HTTP clients and endpoints for one anchor worker.
@@ -188,8 +215,27 @@ impl AnchorServices {
         prepared: &PreparedContributionAnchor,
     ) -> anyhow::Result<SignedAnchorTransaction> {
         prepared.verify()?;
-        if prepared.anchor_payload.network != BsvNetwork::Testnet {
-            return Err(anyhow!("Milestone 1 wallet request must target testnet"));
+        self.create_signed_anchor_transaction(
+            &prepared.anchor_payload,
+            "Anchor ST8WRX project snapshot",
+            "ST8WRX project commitment",
+            "st8wrx-milestone-1",
+            &format!("st8wrx:{}", hex::encode(prepared.project_snapshot.id()?)),
+        )
+        .await
+    }
+
+    /// Asks the external wallet to sign the exact deterministic anchor payload.
+    pub async fn create_signed_anchor_transaction(
+        &self,
+        payload: &AnchorPayload,
+        description: &str,
+        output_description: &str,
+        label: &str,
+        reference: &str,
+    ) -> anyhow::Result<SignedAnchorTransaction> {
+        if payload.network != BsvNetwork::Testnet {
+            return Err(anyhow!("ST8WRX wallet request must target testnet"));
         }
         let wallet = self
             .wallet
@@ -202,29 +248,26 @@ impl AnchorServices {
         if wallet_network.network != Network::Testnet {
             return Err(anyhow!("external wallet is not configured for BSV testnet"));
         }
-        let locking_script = prepared.anchor_payload.locking_script()?;
+        let locking_script = payload.locking_script()?;
         let result = wallet
             .create_action(
                 CreateActionArgs {
-                    description: "Anchor ST8WRX project snapshot".into(),
+                    description: description.into(),
                     input_beef: None,
                     inputs: Vec::new(),
                     outputs: vec![CreateActionOutput {
                         locking_script: Some(locking_script.clone()),
                         satoshis: 0,
-                        output_description: "ST8WRX project commitment".into(),
+                        output_description: output_description.into(),
                         basket: None,
                         custom_instructions: None,
                         tags: vec!["st8wrx-anchor".into()],
                     }],
                     lock_time: None,
                     version: None,
-                    labels: vec!["st8wrx-milestone-1".into()],
+                    labels: vec![label.into()],
                     options: Some(wallet_action_options()),
-                    reference: Some(format!(
-                        "st8wrx:{}",
-                        hex::encode(prepared.project_snapshot.id()?)
-                    )),
+                    reference: Some(reference.into()),
                 },
                 Some("st8wrx.network"),
             )
@@ -262,7 +305,7 @@ impl AnchorServices {
             txid,
             anchor_output_index: u32::try_from(anchor_output_index)?,
         };
-        verify_anchor_transaction(&signed, &prepared.anchor_payload)?;
+        verify_anchor_transaction(&signed, payload)?;
         Ok(signed)
     }
 
@@ -316,28 +359,26 @@ impl AnchorServices {
                     if hex::decode(&woc_raw_transaction_hex)? != transaction.raw_transaction {
                         return Err(anyhow!("WhatsOnChain returned different transaction bytes"));
                     }
-                    let (arc_status, woc_beef_hex) = match arc_status {
-                        Ok(value) if verify_json_txid(&value, &txid).is_ok() => (value, None),
-                        _ if json_u64(&woc_transaction, "confirmations").unwrap_or(0) > 0 => {
-                            let beef_response = self
-                                .client
-                                .get(format!("{}/tx/{txid}/beef", self.woc_url))
-                                .send()
-                                .await?;
-                            if beef_response.status().is_success() {
-                                let beef_hex = beef_response.text().await?.trim().to_owned();
-                                let status = woc_mined_status(
-                                    transaction,
-                                    &txid,
-                                    &woc_transaction,
-                                    &beef_hex,
-                                )?;
-                                (status, Some(beef_hex))
-                            } else {
-                                (woc_seen_status(&txid, &woc_transaction), None)
-                            }
+                    let confirmations = json_u64(&woc_transaction, "confirmations").unwrap_or(0);
+                    let (arc_status, woc_beef_hex) = if confirmations > 0 {
+                        let beef_response = self
+                            .client
+                            .get(format!("{}/tx/{txid}/beef", self.woc_url))
+                            .send()
+                            .await?;
+                        if beef_response.status().is_success() {
+                            let beef_hex = beef_response.text().await?.trim().to_owned();
+                            let status =
+                                woc_mined_status(transaction, &txid, &woc_transaction, &beef_hex)?;
+                            (status, Some(beef_hex))
+                        } else {
+                            (woc_seen_status(&txid, &woc_transaction), None)
                         }
-                        _ => (woc_seen_status(&txid, &woc_transaction), None),
+                    } else {
+                        match arc_status {
+                            Ok(value) if verify_json_txid(&value, &txid).is_ok() => (value, None),
+                            _ => (woc_seen_status(&txid, &woc_transaction), None),
+                        }
                     };
                     let status = json_string(&arc_status, "txStatus")?.to_owned();
                     let network_seen = matches!(
@@ -473,6 +514,16 @@ pub fn resume_signed_transaction(
     raw_transaction: Vec<u8>,
     atomic_beef: Vec<u8>,
 ) -> anyhow::Result<SignedAnchorTransaction> {
+    resume_signed_anchor_transaction(&prepared.anchor_payload, txid, raw_transaction, atomic_beef)
+}
+
+/// Reconstructs a persisted signed transaction for any exact ST8WRX anchor payload.
+pub fn resume_signed_anchor_transaction(
+    payload: &AnchorPayload,
+    txid: &[u8],
+    raw_transaction: Vec<u8>,
+    atomic_beef: Vec<u8>,
+) -> anyhow::Result<SignedAnchorTransaction> {
     let txid: [u8; 32] = txid
         .try_into()
         .map_err(|_| anyhow!("stored txid is not 32 bytes"))?;
@@ -484,7 +535,7 @@ pub fn resume_signed_transaction(
     if subject.to_bytes()? != raw_transaction {
         return Err(anyhow!("stored Atomic BEEF subject mismatch"));
     }
-    let expected_script = prepared.anchor_payload.locking_script()?;
+    let expected_script = payload.locking_script()?;
     let anchor_output_index = subject
         .outputs
         .iter()
@@ -496,7 +547,7 @@ pub fn resume_signed_transaction(
         txid,
         anchor_output_index: u32::try_from(anchor_output_index)?,
     };
-    verify_anchor_transaction(&transaction, &prepared.anchor_payload)?;
+    verify_anchor_transaction(&transaction, payload)?;
     Ok(transaction)
 }
 
@@ -528,6 +579,40 @@ pub fn finalize_receipt(
     let receipt = PersistedContributionReceipt {
         version: 1,
         contribution,
+        network,
+    };
+    receipt.verify()?;
+    Ok(receipt)
+}
+
+/// Builds and verifies a persisted compute settlement wrapper after observation.
+pub fn finalize_compute_receipt(
+    prepared: PreparedComputeSettlementAnchor,
+    transaction: SignedAnchorTransaction,
+    arc_submission: Value,
+    network: BsvNetworkEvidence,
+) -> anyhow::Result<PersistedComputeSettlementReceipt> {
+    let status = json_string(&network.arc_status, "txStatus")?.to_owned();
+    let provider = network
+        .arc_submission
+        .get("provider")
+        .and_then(Value::as_str)
+        .unwrap_or("TAAL ARC testnet")
+        .to_owned();
+    let compute = prepared.finalize(
+        transaction,
+        BroadcastReceipt {
+            accepted: true,
+            status,
+            provider,
+        },
+    )?;
+    if network.arc_submission != arc_submission {
+        return Err(anyhow!("ARC submission evidence changed"));
+    }
+    let receipt = PersistedComputeSettlementReceipt {
+        version: 1,
+        compute,
         network,
     };
     receipt.verify()?;

@@ -1,0 +1,733 @@
+{
+  "version": 1,
+  "verified": {
+    "project": {
+      "project": "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1",
+      "project_event_id": [
+        5,
+        153,
+        144,
+        206,
+        231,
+        141,
+        133,
+        191,
+        131,
+        132,
+        79,
+        121,
+        14,
+        34,
+        92,
+        104,
+        18,
+        84,
+        35,
+        196,
+        84,
+        206,
+        253,
+        153,
+        227,
+        44,
+        210,
+        56,
+        200,
+        177,
+        160,
+        251
+      ],
+      "project_event": {
+        "id": "059990cee78d85bf83844f790e225c68125423c454cefd99e32cd238c8b1a0fb",
+        "pubkey": "56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41",
+        "created_at": 1787546335,
+        "kind": 30621,
+        "tags": [
+          [
+            "d",
+            "st8wrx-milestone-1"
+          ],
+          [
+            "name",
+            "ST8WRX Milestone 1"
+          ],
+          [
+            "description",
+            "End-to-end contribution ledger and BSV testnet anchoring project"
+          ],
+          [
+            "a",
+            "30617:b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1:st8wrx-milestone1-runtime"
+          ]
+        ],
+        "content": "",
+        "sig": "126a4ff0ddfda6062771fe3f8088185f9623e27ed75136b5482672a357894666099743d2c3b9edc844b35ae0fea31f1c0fe4d65e22945272d482f783c843a106"
+      },
+      "repository_coordinates": [
+        "30617:b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1:st8wrx-milestone1-runtime"
+      ]
+    },
+    "pricing": {
+      "event": {
+        "id": "be295613a5d2131890d284eb5a30b7be93e7b21bfa47372d8a38b8dc08d1308c",
+        "pubkey": "d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06",
+        "created_at": 1787573574,
+        "kind": 30626,
+        "tags": [
+          [
+            "d",
+            "58682d027ed81ed4236d43033aa622a3169e3273c787c9965bab534b698fd8ef"
+          ],
+          [
+            "a",
+            "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1"
+          ],
+          [
+            "st8-node",
+            "9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5"
+          ],
+          [
+            "st8-pricing-version",
+            "st8-compute-m1-live-v2"
+          ]
+        ],
+        "content": "{\"project\":\"30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1\",\"provider\":\"nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06\",\"node_owner_id\":\"9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5\",\"version\":\"st8-compute-m1-live-v2\",\"fixed_sats\":1,\"rates\":[{\"meter\":\"InputTokens\",\"units_per_rate\":1000,\"rate_sats\":2},{\"meter\":\"OutputTokens\",\"units_per_rate\":1000,\"rate_sats\":5},{\"meter\":\"WallTimeMs\",\"units_per_rate\":1000,\"rate_sats\":1}],\"failed_jobs_billable\":false}",
+        "sig": "74516f726b7ac3966074949ac0ff5147216120ed4f423c9d2ca76ae8772829ffccf6ef078e3ed9dc80002464ec54a05d9226a52ed410c330143d5f1129a694ec"
+      },
+      "policy": {
+        "project": "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1",
+        "provider": "nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06",
+        "node_owner_id": "9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5",
+        "version": "st8-compute-m1-live-v2",
+        "fixed_sats": 1,
+        "rates": [
+          {
+            "meter": "InputTokens",
+            "units_per_rate": 1000,
+            "rate_sats": 2
+          },
+          {
+            "meter": "OutputTokens",
+            "units_per_rate": 1000,
+            "rate_sats": 5
+          },
+          {
+            "meter": "WallTimeMs",
+            "units_per_rate": 1000,
+            "rate_sats": 1
+          }
+        ],
+        "failed_jobs_billable": false
+      }
+    },
+    "job": {
+      "event": {
+        "id": "66a7156c1293fa314b05ef60d90a155d894b279f2dc0acc517b3e2b85264f6c4",
+        "pubkey": "b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1",
+        "created_at": 1787584266,
+        "kind": 49811,
+        "tags": [
+          [
+            "a",
+            "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1"
+          ],
+          [
+            "d",
+            "99562e39a1eca96af30715a1ce790af28e47471645b1386ece52cddfb4d8cb22"
+          ],
+          [
+            "e",
+            "e5b89112bd23a7011fd3f5760ab8294d1b28b7d8889b4ff982ca796ee833539c"
+          ],
+          [
+            "p",
+            "d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06"
+          ],
+          [
+            "st8-node",
+            "9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5"
+          ],
+          [
+            "st8-pricing",
+            "58682d027ed81ed4236d43033aa622a3169e3273c787c9965bab534b698fd8ef"
+          ]
+        ],
+        "content": "{\"project\":\"30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1\",\"requester\":\"nostr:b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1\",\"provider\":\"nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06\",\"node_owner_id\":\"9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5\",\"workload\":\"LlmInference\",\"agent\":null,\"model\":\"unsloth/Qwen3-0.6B-GGUF:Q4_K_M\",\"pricing_policy_id\":[88,104,45,2,126,216,30,212,35,109,67,3,58,166,34,163,22,158,50,115,199,135,201,150,91,171,83,75,105,143,216,239],\"input_commitment\":[200,89,171,254,221,148,203,57,190,180,227,240,230,113,53,141,9,184,36,177,133,119,242,229,176,71,49,2,183,31,74,65],\"request_event_id\":[229,184,145,18,189,35,167,1,31,211,245,118,10,184,41,77,27,40,183,216,136,155,79,249,130,202,121,110,232,51,83,156],\"max_cost_sats\":100,\"created_at\":1787584266,\"expires_at\":1787586066,\"nonce\":[158,24,93,208,200,166,186,99,43,208,48,188,118,181,141,190,31,195,151,205,87,255,88,16,160,157,71,180,253,151,29,125]}",
+        "sig": "85d3fa195d5da15f3047714670c2b7a3b31aed95c9d288da2a96cc8b895dbc064aedce9e7d8ff0a7a5c03cd47aa31fcb28cfaf6416648fe0287e2be97dfaae1c"
+      },
+      "job": {
+        "project": "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1",
+        "requester": "nostr:b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1",
+        "provider": "nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06",
+        "node_owner_id": "9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5",
+        "workload": "LlmInference",
+        "agent": null,
+        "model": "unsloth/Qwen3-0.6B-GGUF:Q4_K_M",
+        "pricing_policy_id": [
+          88,
+          104,
+          45,
+          2,
+          126,
+          216,
+          30,
+          212,
+          35,
+          109,
+          67,
+          3,
+          58,
+          166,
+          34,
+          163,
+          22,
+          158,
+          50,
+          115,
+          199,
+          135,
+          201,
+          150,
+          91,
+          171,
+          83,
+          75,
+          105,
+          143,
+          216,
+          239
+        ],
+        "input_commitment": [
+          200,
+          89,
+          171,
+          254,
+          221,
+          148,
+          203,
+          57,
+          190,
+          180,
+          227,
+          240,
+          230,
+          113,
+          53,
+          141,
+          9,
+          184,
+          36,
+          177,
+          133,
+          119,
+          242,
+          229,
+          176,
+          71,
+          49,
+          2,
+          183,
+          31,
+          74,
+          65
+        ],
+        "request_event_id": [
+          229,
+          184,
+          145,
+          18,
+          189,
+          35,
+          167,
+          1,
+          31,
+          211,
+          245,
+          118,
+          10,
+          184,
+          41,
+          77,
+          27,
+          40,
+          183,
+          216,
+          136,
+          155,
+          79,
+          249,
+          130,
+          202,
+          121,
+          110,
+          232,
+          51,
+          83,
+          156
+        ],
+        "max_cost_sats": 100,
+        "created_at": 1787584266,
+        "expires_at": 1787586066,
+        "nonce": [
+          158,
+          24,
+          93,
+          208,
+          200,
+          166,
+          186,
+          99,
+          43,
+          208,
+          48,
+          188,
+          118,
+          181,
+          141,
+          190,
+          31,
+          195,
+          151,
+          205,
+          87,
+          255,
+          88,
+          16,
+          160,
+          157,
+          71,
+          180,
+          253,
+          151,
+          29,
+          125
+        ]
+      }
+    },
+    "request_event": {
+      "id": "e5b89112bd23a7011fd3f5760ab8294d1b28b7d8889b4ff982ca796ee833539c",
+      "pubkey": "b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1",
+      "created_at": 1787584266,
+      "kind": 43001,
+      "tags": [
+        [
+          "a",
+          "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1"
+        ],
+        [
+          "p",
+          "d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06"
+        ],
+        [
+          "st8-input",
+          "c859abfedd94cb39beb4e3f0e671358d09b824b18577f2e5b0473102b71f4a41"
+        ]
+      ],
+      "content": "{\"input_commitment\":\"c859abfedd94cb39beb4e3f0e671358d09b824b18577f2e5b0473102b71f4a41\",\"model\":\"unsloth/Qwen3-0.6B-GGUF:Q4_K_M\",\"private_input\":true,\"version\":1,\"workload\":\"llm_inference\"}",
+      "sig": "f48c86ab2f98711cc5a4291e410a7da10eebc11d931248df9655bdddbd6e2a60839261c8202d5c77548d88f3c8b51fb0ff70daca0704711ebcdb84bb13788405"
+    },
+    "result_event": {
+      "id": "847839d4dad464e15a85ba27bd26fc7a37cf0c912d592da761e89c7d1df335e5",
+      "pubkey": "d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06",
+      "created_at": 1787584268,
+      "kind": 43004,
+      "tags": [
+        [
+          "a",
+          "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1"
+        ],
+        [
+          "e",
+          "e5b89112bd23a7011fd3f5760ab8294d1b28b7d8889b4ff982ca796ee833539c"
+        ],
+        [
+          "st8-request",
+          "e5b89112bd23a7011fd3f5760ab8294d1b28b7d8889b4ff982ca796ee833539c"
+        ],
+        [
+          "st8-output",
+          "82c7f9f08b7ddf1a04a6af4875eed9cc2ee5c444b173649e077d071fd5f529f4"
+        ]
+      ],
+      "content": "{\"model\":\"unsloth/Qwen3-0.6B-GGUF:Q4_K_M\",\"output_commitment\":\"82c7f9f08b7ddf1a04a6af4875eed9cc2ee5c444b173649e077d071fd5f529f4\",\"private_output\":true,\"status\":\"Completed\",\"version\":1}",
+      "sig": "a6fd3849bdd44bb826a0f803d8daec767c9536ba4028adad1a2a59fa56b1e23b315a64335b16ad8ae5eab375ea1be53ef2f4c45b0d4b1bf4e3dc078c63470418"
+    },
+    "receipt_event": {
+      "id": "15a35a1cd9c8f2219120bcfefbda87ed76e5018547b6b2c1aa2c7b24cdfc7019",
+      "pubkey": "d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06",
+      "created_at": 1787584268,
+      "kind": 49812,
+      "tags": [
+        [
+          "a",
+          "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1"
+        ],
+        [
+          "d",
+          "15f52dd21b90c348fec96563d99cd36983dab0d799d2291a9074a13339aef90f"
+        ],
+        [
+          "e",
+          "847839d4dad464e15a85ba27bd26fc7a37cf0c912d592da761e89c7d1df335e5"
+        ],
+        [
+          "p",
+          "b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1"
+        ],
+        [
+          "st8-job",
+          "99562e39a1eca96af30715a1ce790af28e47471645b1386ece52cddfb4d8cb22"
+        ],
+        [
+          "st8-node",
+          "9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5"
+        ]
+      ],
+      "content": "{\"receipt\":{\"job_id\":[153,86,46,57,161,236,169,106,243,7,21,161,206,121,10,242,142,71,71,22,69,177,56,110,206,82,205,223,180,216,203,34],\"project\":\"30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1\",\"requester\":\"nostr:b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1\",\"provider\":\"nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06\",\"node_owner_id\":\"9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5\",\"workload\":\"LlmInference\",\"agent\":null,\"model\":\"unsloth/Qwen3-0.6B-GGUF:Q4_K_M\",\"pricing_policy_id\":[88,104,45,2,126,216,30,212,35,109,67,3,58,166,34,163,22,158,50,115,199,135,201,150,91,171,83,75,105,143,216,239],\"request_event_id\":[229,184,145,18,189,35,167,1,31,211,245,118,10,184,41,77,27,40,183,216,136,155,79,249,130,202,121,110,232,51,83,156],\"result_event_id\":[132,120,57,212,218,212,100,225,90,133,186,39,189,38,252,122,55,207,12,145,45,89,45,167,97,232,156,125,29,243,53,229],\"agent_metric_event_id\":null,\"started_at_ms\":1787584266390,\"ended_at_ms\":1787584268530,\"usage\":[{\"kind\":\"InputTokens\",\"quantity\":27,\"quality\":\"TargetExact\",\"source\":\"mesh.openai.usage.prompt_tokens\"},{\"kind\":\"OutputTokens\",\"quantity\":102,\"quality\":\"TargetExact\",\"source\":\"mesh.openai.usage.completion_tokens\"},{\"kind\":\"WallTimeMs\",\"quantity\":2140,\"quality\":\"HostExact\",\"source\":\"st8.monotonic.elapsed_ms\"},{\"kind\":\"Jobs\",\"quantity\":1,\"quality\":\"HostExact\",\"source\":\"st8.completed_job\"}],\"price\":{\"fixed_sats\":1,\"lines\":[{\"meter\":\"InputTokens\",\"quantity\":27,\"units_per_rate\":1000,\"rate_sats\":2,\"charge_sats\":1},{\"meter\":\"OutputTokens\",\"quantity\":102,\"units_per_rate\":1000,\"rate_sats\":5,\"charge_sats\":1},{\"meter\":\"WallTimeMs\",\"quantity\":2140,\"units_per_rate\":1000,\"rate_sats\":1,\"charge_sats\":3}],\"total_sats\":6},\"result_commitment\":[130,199,249,240,139,125,223,26,4,166,175,72,117,238,217,204,46,229,196,68,177,115,100,158,7,125,7,31,213,245,41,244],\"status\":\"Completed\",\"routing_target\":\"local:127.0.0.1:65211\",\"meter_version\":\"mesh-openai-target-delta-v1\",\"evidence\":[]},\"node_public_key\":[71,71,94,148,215,123,123,220,56,110,30,110,199,58,138,180,252,213,127,235,44,198,252,129,108,166,66,70,215,53,30,251],\"node_signature\":[232,42,96,183,141,186,41,127,153,12,233,6,126,64,162,94,213,151,65,47,197,177,244,80,99,209,34,222,214,161,219,161,162,90,111,183,137,33,161,183,60,146,16,125,181,152,178,44,218,177,24,14,51,231,253,57,1,102,169,25,166,222,187,5]}",
+      "sig": "afd20c2eabb473926d3f0d179e1b8cb9c0f4ed2cc80b408413df6198b92cbd24e0f3ae626674e26633841c10aebb7bf560ceb5af2df7447493da97b6a6683310"
+    },
+    "attestation": {
+      "receipt": {
+        "job_id": [
+          153,
+          86,
+          46,
+          57,
+          161,
+          236,
+          169,
+          106,
+          243,
+          7,
+          21,
+          161,
+          206,
+          121,
+          10,
+          242,
+          142,
+          71,
+          71,
+          22,
+          69,
+          177,
+          56,
+          110,
+          206,
+          82,
+          205,
+          223,
+          180,
+          216,
+          203,
+          34
+        ],
+        "project": "30621:56abd2fea6e0e00d0a9bcee7ec841f355275a87c89ea72b2d95f154bb2877a41:st8wrx-milestone-1",
+        "requester": "nostr:b9935e323037bbbe9e851a9e5b146f34b586a347d7151ba4801d84b4c10f49d1",
+        "provider": "nostr:d0f3662fae720bd692fbd0d17bb349bfd34e2da427b5d2b4b5c200e606996c06",
+        "node_owner_id": "9e2be75f5ec04f38cf4125e51ad4fca8ff88a2b82506d8e06715a93514ac56a5",
+        "workload": "LlmInference",
+        "agent": null,
+        "model": "unsloth/Qwen3-0.6B-GGUF:Q4_K_M",
+        "pricing_policy_id": [
+          88,
+          104,
+          45,
+          2,
+          126,
+          216,
+          30,
+          212,
+          35,
+          109,
+          67,
+          3,
+          58,
+          166,
+          34,
+          163,
+          22,
+          158,
+          50,
+          115,
+          199,
+          135,
+          201,
+          150,
+          91,
+          171,
+          83,
+          75,
+          105,
+          143,
+          216,
+          239
+        ],
+        "request_event_id": [
+          229,
+          184,
+          145,
+          18,
+          189,
+          35,
+          167,
+          1,
+          31,
+          211,
+          245,
+          118,
+          10,
+          184,
+          41,
+          77,
+          27,
+          40,
+          183,
+          216,
+          136,
+          155,
+          79,
+          249,
+          130,
+          202,
+          121,
+          110,
+          232,
+          51,
+          83,
+          156
+        ],
+        "result_event_id": [
+          132,
+          120,
+          57,
+          212,
+          218,
+          212,
+          100,
+          225,
+          90,
+          133,
+          186,
+          39,
+          189,
+          38,
+          252,
+          122,
+          55,
+          207,
+          12,
+          145,
+          45,
+          89,
+          45,
+          167,
+          97,
+          232,
+          156,
+          125,
+          29,
+          243,
+          53,
+          229
+        ],
+        "agent_metric_event_id": null,
+        "started_at_ms": 1787584266390,
+        "ended_at_ms": 1787584268530,
+        "usage": [
+          {
+            "kind": "InputTokens",
+            "quantity": 27,
+            "quality": "TargetExact",
+            "source": "mesh.openai.usage.prompt_tokens"
+          },
+          {
+            "kind": "OutputTokens",
+            "quantity": 102,
+            "quality": "TargetExact",
+            "source": "mesh.openai.usage.completion_tokens"
+          },
+          {
+            "kind": "WallTimeMs",
+            "quantity": 2140,
+            "quality": "HostExact",
+            "source": "st8.monotonic.elapsed_ms"
+          },
+          {
+            "kind": "Jobs",
+            "quantity": 1,
+            "quality": "HostExact",
+            "source": "st8.completed_job"
+          }
+        ],
+        "price": {
+          "fixed_sats": 1,
+          "lines": [
+            {
+              "meter": "InputTokens",
+              "quantity": 27,
+              "units_per_rate": 1000,
+              "rate_sats": 2,
+              "charge_sats": 1
+            },
+            {
+              "meter": "OutputTokens",
+              "quantity": 102,
+              "units_per_rate": 1000,
+              "rate_sats": 5,
+              "charge_sats": 1
+            },
+            {
+              "meter": "WallTimeMs",
+              "quantity": 2140,
+              "units_per_rate": 1000,
+              "rate_sats": 1,
+              "charge_sats": 3
+            }
+          ],
+          "total_sats": 6
+        },
+        "result_commitment": [
+          130,
+          199,
+          249,
+          240,
+          139,
+          125,
+          223,
+          26,
+          4,
+          166,
+          175,
+          72,
+          117,
+          238,
+          217,
+          204,
+          46,
+          229,
+          196,
+          68,
+          177,
+          115,
+          100,
+          158,
+          7,
+          125,
+          7,
+          31,
+          213,
+          245,
+          41,
+          244
+        ],
+        "status": "Completed",
+        "routing_target": "local:127.0.0.1:65211",
+        "meter_version": "mesh-openai-target-delta-v1",
+        "evidence": []
+      },
+      "node_public_key": [
+        71,
+        71,
+        94,
+        148,
+        215,
+        123,
+        123,
+        220,
+        56,
+        110,
+        30,
+        110,
+        199,
+        58,
+        138,
+        180,
+        252,
+        213,
+        127,
+        235,
+        44,
+        198,
+        252,
+        129,
+        108,
+        166,
+        66,
+        70,
+        215,
+        53,
+        30,
+        251
+      ],
+      "node_signature": [
+        232,
+        42,
+        96,
+        183,
+        141,
+        186,
+        41,
+        127,
+        153,
+        12,
+        233,
+        6,
+        126,
+        64,
+        162,
+        94,
+        213,
+        151,
+        65,
+        47,
+        197,
+        177,
+        244,
+        80,
+        99,
+        209,
+        34,
+        222,
+        214,
+        161,
+        219,
+        161,
+        162,
+        90,
+        111,
+        183,
+        137,
+        33,
+        161,
+        183,
+        60,
+        146,
+        16,
+        125,
+        181,
+        152,
+        178,
+        44,
+        218,
+        177,
+        24,
+        14,
+        51,
+        231,
+        253,
+        57,
+        1,
+        102,
+        169,
+        25,
+        166,
+        222,
+        187,
+        5
+      ]
+    }
+  },
+  "output_commitment": "82c7f9f08b7ddf1a04a6af4875eed9cc2ee5c444b173649e077d071fd5f529f4",
+  "private_output_persisted": false
+}

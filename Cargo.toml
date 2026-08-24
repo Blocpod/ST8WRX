@@ -1,5 +1,8 @@
 [workspace]
 members = [
+    "crates/st8-compute-protocol",
+    "crates/st8-compute-engine",
+    "crates/st8-compute-runtime",
     "crates/st8-contribution-protocol",
     "crates/st8-bsv-provenance",
     "crates/st8-contribution-engine",
@@ -109,6 +112,7 @@ reqwest = { version = "0.13", features = ["json", "rustls"], default-features = 
 
 # Cryptography
 sha2      = "0.11"
+ed25519-dalek = "=3.0.0-rc.0"
 hex       = "0.4"
 hmac      = "0.13"
 base64    = "0.22"
@@ -154,6 +158,8 @@ buzz-datastore-tracing = { path = "crates/buzz-datastore-tracing" }
 st8-contribution-protocol = { path = "crates/st8-contribution-protocol" }
 st8-bsv-provenance = { path = "crates/st8-bsv-provenance" }
 st8-contribution-engine = { path = "crates/st8-contribution-engine" }
+st8-compute-protocol = { path = "crates/st8-compute-protocol" }
+st8-compute-engine = { path = "crates/st8-compute-engine" }
 bsv-sdk = { version = "0.1.71", features = ["network"] }
 
 # CI profile — builds the relay for desktop e2e. Dependencies keep full

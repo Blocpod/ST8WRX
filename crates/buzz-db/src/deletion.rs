@@ -77,6 +77,11 @@ pub const EXPECTED_SCOPED_TABLES: &[&str] = &[
     "relay_members",
     "scheduled_workflow_fires",
     "st8_anchor_jobs",
+    "st8_compute_anchor_jobs",
+    "st8_compute_disputes",
+    "st8_compute_receipts",
+    "st8_compute_jobs",
+    "st8_compute_settlements",
     "st8_contribution_evidence",
     "st8_contributions",
     "st8_governance_approvals",
@@ -92,6 +97,11 @@ pub const EXPECTED_SCOPED_TABLES: &[&str] = &[
 /// Foreign-key-safe child-before-parent order for the PostgreSQL purge.
 pub const PURGE_SCOPED_TABLES: &[&str] = &[
     "st8_anchor_jobs",
+    "st8_compute_anchor_jobs",
+    "st8_compute_disputes",
+    "st8_compute_receipts",
+    "st8_compute_jobs",
+    "st8_compute_settlements",
     "st8_contribution_evidence",
     "st8_governance_approvals",
     "st8_contributions",

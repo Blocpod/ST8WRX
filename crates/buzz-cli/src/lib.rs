@@ -219,6 +219,9 @@ enum Cmd {
     /// Govern, inspect, and verify ST8WRX contribution records
     #[command(subcommand)]
     Contributions(ContributionsCmd),
+    /// Query ST8 Compute nodes, jobs, receipts, balances, and settlements
+    #[command(subcommand)]
+    Compute(ComputeCmd),
     /// Send, get, list, and set status on git patches (NIP-34)
     #[command(subcommand)]
     Patches(PatchesCmd),
@@ -1503,6 +1506,72 @@ pub enum ContributionsCmd {
 }
 
 #[derive(Subcommand)]
+pub enum ComputeCmd {
+    /// List project pricing and the matching signed node capabilities
+    Nodes {
+        /// Full kind-30621 project coordinate
+        #[arg(long)]
+        project: String,
+        /// Maximum pricing/capability rows
+        #[arg(long, default_value_t = 100)]
+        limit: u32,
+    },
+    /// List requester-signed project compute jobs
+    Jobs {
+        /// Full kind-30621 project coordinate
+        #[arg(long)]
+        project: String,
+        /// Optional provider Nostr public key
+        #[arg(long)]
+        provider: Option<String>,
+        /// Maximum rows
+        #[arg(long, default_value_t = 100)]
+        limit: u32,
+    },
+    /// List relay-signed project Compute Ledger receipts
+    Receipts {
+        /// Full kind-30621 project coordinate
+        #[arg(long)]
+        project: String,
+        /// Optional provider Nostr public key
+        #[arg(long)]
+        provider: Option<String>,
+        /// Optional terminal state: completed, failed, or cancelled
+        #[arg(long)]
+        status: Option<String>,
+        /// Maximum rows
+        #[arg(long, default_value_t = 100)]
+        limit: u32,
+    },
+    /// Derive pending, disputed, queued, and confirmed provider balances
+    Balances {
+        /// Full kind-30621 project coordinate
+        #[arg(long)]
+        project: String,
+        /// Optional provider Nostr public key
+        #[arg(long)]
+        provider: Option<String>,
+        /// Maximum receipt rows considered
+        #[arg(long, default_value_t = 1_000)]
+        limit: u32,
+    },
+    /// List project settlement snapshots and BSV anchor state
+    Settlements {
+        /// Full kind-30621 project coordinate
+        #[arg(long)]
+        project: String,
+        /// Maximum rows
+        #[arg(long, default_value_t = 100)]
+        limit: u32,
+    },
+    /// Get one relay-signed Compute Ledger receipt
+    ShowReceipt {
+        /// 32-byte compute receipt ID in hex
+        receipt_id: String,
+    },
+}
+
+#[derive(Subcommand)]
 pub enum PatchesCmd {
     /// Send a git patch (NIP-34 kind:1617)
     #[command(
@@ -2183,6 +2252,7 @@ async fn run(cli: Cli) -> Result<(), CliError> {
         Cmd::Repos(sub) => commands::repos::dispatch(sub, &client).await,
         Cmd::Projects(sub) => commands::projects::dispatch(sub, &client).await,
         Cmd::Contributions(sub) => commands::contributions::dispatch(sub, &client).await,
+        Cmd::Compute(sub) => commands::compute::dispatch(sub, &client).await,
         Cmd::Patches(sub) => commands::patches::dispatch(sub, &client).await,
         Cmd::Issues(sub) => commands::issues::dispatch(sub, &client).await,
         Cmd::Pr(sub) => commands::pr::dispatch(sub, &client).await,
@@ -2321,6 +2391,7 @@ mod tests {
             "agents",
             "canvas",
             "channels",
+            "compute",
             "contributions",
             "dms",
             "emoji",
@@ -2457,6 +2528,17 @@ mod tests {
         );
         assert_eq!(names(&cmd, "feed"), vec!["get"]);
         assert_eq!(
+            names(&cmd, "compute"),
+            vec![
+                "balances",
+                "jobs",
+                "nodes",
+                "receipts",
+                "settlements",
+                "show-receipt"
+            ]
+        );
+        assert_eq!(
             names(&cmd, "social"),
             vec![
                 "contacts",
@@ -2535,6 +2617,7 @@ mod tests {
             ("agents", 5),
             ("canvas", 2),
             ("channels", 16),
+            ("compute", 6),
             ("contributions", 6),
             ("dms", 4),
             ("emoji", 5),
