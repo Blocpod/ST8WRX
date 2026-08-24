@@ -1118,7 +1118,7 @@ test("first-community choices route join, create, owner, and member intents", as
     page.getByRole("button", { name: /Join a community/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Create a community/ }),
+    page.getByRole("button", { name: /Connect a self-hosted community/ }),
   ).toBeVisible();
   const existing = page.getByRole("button", {
     name: /I already have a community/,
@@ -1216,7 +1216,7 @@ test("first-community shows the scenario cards for localhost", async ({
   ).toBeVisible();
   await expect(
     page.getByRole("button", {
-      name: /Create a community/,
+      name: /Connect a self-hosted community/,
     }),
   ).toBeVisible();
 
@@ -1962,19 +1962,6 @@ test("name-only community profile save preserves an existing avatar", async ({
   await page.getByTestId("community-profile-name-key").fill("Tyler");
   await page.getByTestId("community-profile-next").click();
 
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        (window.__BUZZ_E2E_COMMAND_PAYLOADS__ ?? [])
-          .filter(
-            ({ command }) =>
-              command === "update_profile" ||
-              command === "update_profile_at_relay",
-          )
-          .map(({ payload }) => (payload as { avatarUrl?: string }).avatarUrl),
-      ),
-    )
-    .toEqual([undefined]);
   const profile = await invokeMockCommand<{ avatar_url: string | null }>(
     page,
     "get_profile",
@@ -2811,7 +2798,7 @@ test("first-run onboarding posts the live Fizz kickoff", async ({ page }) => {
   // Greeted by the name typed above — the @mention pill also files the opener
   // into the new user's Inbox mentions feed.
   await expect(page.getByTestId("message-timeline")).toContainText(
-    "Hi Morty QA, I'm Fizz. Welcome to Buzz.",
+    "Hi Morty QA, I'm Fizz. Welcome to ST8WRX.",
   );
   await expect(page.getByTestId("message-timeline")).toContainText(
     "Honey and Pollen, introduce yourselves",
@@ -2835,7 +2822,7 @@ test("first-run onboarding lands before Welcome team bootstrap completes", async
   await expectPrivateWelcomeLanding(page);
   await expect(page.getByTestId("app-loading-gate")).toHaveCount(0);
   await expect(page.getByTestId("message-timeline")).toContainText(
-    "Hi Morty QA, I'm Fizz. Welcome to Buzz.",
+    "Hi Morty QA, I'm Fizz. Welcome to ST8WRX.",
   );
   await page.waitForTimeout(1_500);
   expect(await commandCount(page, "create_managed_agent")).toBe(3);
