@@ -85,6 +85,9 @@ expression = "Apache-2.0"
 license-files = []
 
 [licenses.private]
+# The Open-BSV-licensed anchor worker is deliberately unpublished. Its one
+# non-SPDX SDK dependency is checksum- and license-text-pinned by
+# scripts/check-cargo-deny-policy.mjs; every other cargo-deny lint stays strict.
 ignore = true
 
 [bans]
