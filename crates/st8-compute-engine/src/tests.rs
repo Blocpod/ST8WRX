@@ -40,6 +40,7 @@ fn signed_capability(key: &SigningKey) -> NodeCapabilityAttestation {
 }
 
 struct ReceiptFixture {
+    founder: Keys,
     requester: Keys,
     provider: Keys,
     project: BuzzProjectContext,
@@ -191,6 +192,7 @@ fn receipt_fixture(
         .sign_with_keys(&provider)
         .expect("receipt signature");
     ReceiptFixture {
+        founder,
         requester,
         provider,
         project,
@@ -460,4 +462,83 @@ fn signed_result_content_and_tag_disagreement_is_rejected() {
         ),
         Err(EngineError::EventBindingMismatch)
     ));
+}
+
+#[test]
+fn resolution_requires_project_owner_and_exact_signed_dispute() {
+    let fixture = receipt_fixture([1; 32], [6; 32]);
+    let receipt = VerifiedComputeReceipt::from_events(
+        fixture.project.clone(),
+        &fixture.pricing_event,
+        &fixture.job_event,
+        &fixture.request_event,
+        &fixture.result_event,
+        &fixture.receipt_event,
+    )
+    .expect("verified receipt");
+    let dispute = ComputeDispute {
+        project: fixture.project.project.clone(),
+        receipt_id: receipt.attestation.receipt.id().unwrap(),
+        job_id: receipt.job.job.id().unwrap(),
+        disputed_at: 1_700_000_003,
+        reason: "incorrect response".into(),
+        evidence: vec![],
+    }
+    .event_builder()
+    .unwrap()
+    .sign_with_keys(&fixture.requester)
+    .unwrap();
+    let resolution = ComputeResolution {
+        project: fixture.project.project.clone(),
+        receipt_id: receipt.attestation.receipt.id().unwrap(),
+        dispute_event_id: *dispute.id.as_bytes(),
+        outcome: ComputeResolutionOutcome::UpholdCharge,
+        resolved_at: 1_700_000_004,
+        reason: "usage and output match authorization".into(),
+    };
+    for outcome in [
+        ComputeResolutionOutcome::UpholdCharge,
+        ComputeResolutionOutcome::VoidCharge,
+    ] {
+        let mut body = resolution.clone();
+        body.outcome = outcome;
+        let valid = body
+            .event_builder()
+            .unwrap()
+            .sign_with_keys(&fixture.founder)
+            .unwrap();
+        assert_eq!(
+            ComputeResolution::from_event(&fixture.project, &receipt, &dispute, &valid).unwrap(),
+            body
+        );
+    }
+    let unauthorized = resolution
+        .event_builder()
+        .unwrap()
+        .sign_with_keys(&fixture.provider)
+        .unwrap();
+    assert!(
+        ComputeResolution::from_event(&fixture.project, &receipt, &dispute, &unauthorized).is_err()
+    );
+    let mut wrong = resolution.clone();
+    wrong.dispute_event_id = [9; 32];
+    let wrong = wrong
+        .event_builder()
+        .unwrap()
+        .sign_with_keys(&fixture.founder)
+        .unwrap();
+    assert!(ComputeResolution::from_event(&fixture.project, &receipt, &dispute, &wrong).is_err());
+    let mut retroactive = resolution.clone();
+    retroactive.resolved_at = 1_700_000_002;
+    let retroactive = retroactive
+        .event_builder()
+        .unwrap()
+        .sign_with_keys(&fixture.founder)
+        .unwrap();
+    assert!(
+        ComputeResolution::from_event(&fixture.project, &receipt, &dispute, &retroactive).is_err()
+    );
+    let mut empty = resolution;
+    empty.reason.clear();
+    assert!(empty.event_builder().is_err());
 }

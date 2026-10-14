@@ -3,6 +3,7 @@ import { ArrowLeft, FolderGit2 } from "lucide-react";
 import type { Project } from "@/features/projects/hooks";
 import { Button } from "@/shared/ui/button";
 import { UnavailableProjectRepositories } from "./UnavailableProjectRepositories";
+import { ProjectEconomyDialog } from "./ProjectEconomyDialog";
 
 type ProjectDetailUnavailableStateProps =
   | {
@@ -65,6 +66,10 @@ export function ProjectDetailUnavailableState(
         This project does not have any available repositories yet.
       </p>
       <UnavailableProjectRepositories project={props.project} />
+      <ProjectEconomyDialog
+        key={props.project.projectAddress}
+        project={props.project}
+      />
     </div>
   );
 }

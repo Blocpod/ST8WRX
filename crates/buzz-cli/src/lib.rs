@@ -1507,6 +1507,24 @@ pub enum ContributionsCmd {
 
 #[derive(Subcommand)]
 pub enum ComputeCmd {
+    /// Submit the project owner's final decision on an exact compute dispute
+    Resolve {
+        /// Full kind-30621 project coordinate
+        #[arg(long)]
+        project: String,
+        /// Deterministic receipt ID in hex
+        #[arg(long)]
+        receipt_id: String,
+        /// Exact signed dispute event ID in hex
+        #[arg(long)]
+        dispute_event_id: String,
+        /// Release the original charge or permanently void it
+        #[arg(long, value_parser = ["uphold_charge", "void_charge"])]
+        outcome: String,
+        /// Public reason for the final decision
+        #[arg(long)]
+        reason: String,
+    },
     /// List project pricing and the matching signed node capabilities
     Nodes {
         /// Full kind-30621 project coordinate
@@ -2534,6 +2552,7 @@ mod tests {
                 "jobs",
                 "nodes",
                 "receipts",
+                "resolve",
                 "settlements",
                 "show-receipt"
             ]
@@ -2617,7 +2636,7 @@ mod tests {
             ("agents", 5),
             ("canvas", 2),
             ("channels", 16),
-            ("compute", 6),
+            ("compute", 7),
             ("contributions", 6),
             ("dms", 4),
             ("emoji", 5),

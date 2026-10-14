@@ -37,6 +37,43 @@ impl From<ActionSinkError> for crate::WorkflowError {
     }
 }
 
+/// Relay-backed workflow side effects with the run's explicit tenant and owner.
+#[derive(Debug, Clone)]
+pub enum WorkflowSideEffect {
+    /// Open a private conversation and post its message.
+    SendDm {
+        /// Exact recipient public key.
+        to: String,
+        /// Private conversation message.
+        text: String,
+    },
+    /// Update the workflow channel's topic.
+    SetChannelTopic {
+        /// Replacement topic.
+        topic: String,
+    },
+    /// React to the exact triggering message in the workflow channel.
+    AddReaction {
+        /// Exact triggering message ID.
+        message_id: String,
+        /// Reaction content.
+        emoji: String,
+    },
+    /// Publish an already persisted approval request.
+    ApprovalRequested {
+        /// Stored approval reference.
+        token_hash: String,
+        /// Exact approver public key or any channel member.
+        approver: String,
+        /// Approval prompt.
+        message: String,
+        /// Owning workflow run.
+        run_id: String,
+        /// Stable database creation time for idempotent event emission.
+        created_at: u64,
+    },
+}
+
 /// Interface for workflow actions that produce side effects.
 ///
 /// Implemented by the relay to provide direct DB/event access to the executor.
@@ -46,6 +83,21 @@ impl From<ActionSinkError> for crate::WorkflowError {
 /// Returns `Pin<Box<dyn Future>>` for dyn-compatibility — required because
 /// `WorkflowEngine` stores `Arc<dyn ActionSink>`.
 pub trait ActionSink: Send + Sync {
+    /// Apply a tenant-scoped side effect as the workflow owner.
+    fn perform(
+        &self,
+        _community_id: CommunityId,
+        _channel_id: &str,
+        _author_pubkey: &str,
+        _effect: WorkflowSideEffect,
+    ) -> Pin<Box<dyn Future<Output = Result<String, ActionSinkError>> + Send + '_>> {
+        Box::pin(async {
+            Err(ActionSinkError::InvalidInput(
+                "action sink does not support this action".into(),
+            ))
+        })
+    }
+
     /// Post a message to a channel on behalf of a workflow owner.
     ///
     /// - `community_id`: the server-resolved community that owns the workflow

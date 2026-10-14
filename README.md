@@ -12,8 +12,8 @@ independent venture, provenance, and economic architecture.
 
 ## Current milestone
 
-The repository currently contains the imported Buzz collaboration baseline plus
-the first isolated ST8WRX protocol slice:
+The repository contains the Buzz-derived collaboration clients and relay,
+contribution accounting, and a developer-operated ST8 Compute testnet milestone:
 
 - `st8-contribution-protocol` — deterministic contribution records, decisions,
   explicit permanent protocol codes, canonical set handling, and Contribution
@@ -26,9 +26,35 @@ the first isolated ST8WRX protocol slice:
   and independent end-to-end verification.
 - `st8wrx-contribution` — governance-intent, prepare, finalize, and verify CLI
   for the BRC-100 wallet and ARC boundary.
+- `st8-compute-protocol` and `st8-compute-engine` — signed node capabilities,
+  pricing, job authorization, metered receipts, and settlement commitments.
+- `st8-compute-runtime` — the `st8-compute` CLI for isolated local Mesh inference
+  and accounting; see its [operating limits](crates/st8-compute-runtime/README.md).
+- `st8-anchor-worker` — leased contribution and compute anchor queues, external
+  testnet wallet integration, saved transaction recovery, and receipt verification.
+- `buzz contributions` and `buzz compute` — relay-backed signed operations and
+  ledger queries. PostgreSQL projections and Nostr events retain accounting state.
 
 The protocol implementation does not put blockchain calls in Buzz's synchronous
 collaboration path and does not hold wallet secrets.
+
+The desktop project view now includes contribution claims, founder governance,
+ledger records, and compute disputes. The selected release target is a private
+beta using local CLI compute and testnet proofs. See the
+[private-beta launch checklist](docs/st8wrx/PRIVATE-BETA.md) for implemented
+workflows, validation, and remaining operator steps, and the
+[readiness audit](docs/st8wrx/READINESS-AUDIT-2026-10-12.md) for the historical baseline.
+Settlement commitments do not transfer money to providers. A paid marketplace,
+mobile/web economy parity, and production distribution remain future work.
+
+The [live relay pilot](docs/st8wrx/LIVE-CONTRIBUTION-PILOT.md) verified signed
+contribution accounting over HTTP and WebSocket, duplicate protection, and
+restart persistence. [Database restore drills](docs/st8wrx/BACKUP-RESTORE-DRILL.md)
+preserved accounting records, receipts, and wallet-request recovery state.
+Desktop JavaScript (5,401), native desktop (2,756), and mobile (1,661) tests
+passed; the native suite has 18 intentionally ignored tests. Installed-desktop
+integration with the intended community and testnet wallet, full CI, release
+packaging, and a complete installation restore remain launch checks.
 
 ## Architecture
 
@@ -56,10 +82,14 @@ See [ST8WRX architecture](docs/st8wrx/ARCHITECTURE.md), the
 . ./bin/activate-hermit
 cargo test -p st8-contribution-protocol \
   -p st8-bsv-provenance \
-  -p st8-contribution-engine
+  -p st8-contribution-engine \
+  -p st8-compute-protocol -p st8-compute-engine \
+  -p st8-compute-runtime -p st8-anchor-worker
 cargo clippy -p st8-contribution-protocol \
   -p st8-bsv-provenance \
-  -p st8-contribution-engine --all-targets -- -D warnings
+  -p st8-contribution-engine \
+  -p st8-compute-protocol -p st8-compute-engine \
+  -p st8-compute-runtime -p st8-anchor-worker --all-targets -- -D warnings
 ```
 
 The broader upstream build and development commands remain available through the
@@ -100,7 +130,10 @@ cargo run -p st8-contribution-engine --bin st8wrx-contribution -- \
 
 The checked-in [Milestone 1 receipt](docs/st8wrx/milestone-1/README.md) grounds a
 real 1,000-CU contribution in signed ST8WRX activity, includes two authorized
-governance approvals, and independently verifies its mined BSV testnet anchor.
+governance approvals, and includes BSV testnet transaction/header evidence.
+Offline verification checks signatures, commitments, inclusion, and header proof
+of work; accepted-chain membership requires an independently trusted block hash
+or chain source. See the [verification boundary](docs/st8wrx/PROOF-VERIFICATION.md).
 
 See [BSV tooling](docs/st8wrx/BSV-TOOLING.md) for current standards and the
 JSON contracts.

@@ -30,6 +30,9 @@ use st8_compute_protocol::{
 use st8_contribution_engine::BuzzProjectContext;
 use thiserror::Error;
 
+mod resolution;
+pub use resolution::{ComputeResolution, ComputeResolutionOutcome};
+
 const NODE_CAPABILITY_SIGNATURE_DOMAIN: &[u8] = b"ST8WRX\0MESH_NODE_CAPABILITY_SIGNATURE\0V1";
 const NODE_RECEIPT_SIGNATURE_DOMAIN: &[u8] = b"ST8WRX\0MESH_NODE_RECEIPT_SIGNATURE\0V1";
 

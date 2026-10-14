@@ -26,10 +26,12 @@ the external wallet reports `testnet`, and calls `createAction` with:
 - deterministic output ordering for verifiable commitment location; and
 - wallet-managed input selection, signing, change, and fee payment.
 
-The wallet broadcasts without exposing keys. The worker immediately verifies
-the exact commitment and persists txid, raw bytes, and Atomic BEEF before its
-independent provider submission/observation. A retry resumes those exact bytes
-and cannot create a second wallet spend.
+The worker commits a wallet-call intent before invoking the wallet. The wallet
+broadcasts without exposing keys; the worker then verifies and persists txid,
+raw bytes, and Atomic BEEF before independent provider submission/observation.
+A retry resumes those bytes. An interrupted call without saved bytes is
+quarantined for [operator recovery](ANCHOR-RECOVERY.md), never automatically
+funded again. Wallet reference idempotency is not assumed.
 
 ## Broadcast and proof providers
 
@@ -44,10 +46,14 @@ After broadcast, completion requires independent WhatsOnChain reads of:
 - decoded transaction details and current testnet state.
 
 When the transaction is mined, the worker additionally persists mined BEEF/BUMP
-and block fields used to recompute the Merkle root and 80-byte header hash.
+and block fields used to recompute the Merkle root, 80-byte header hash, and
+proof of work against the stated target.
 
 The receipt verifier is offline: it consumes persisted public proof material,
-not a wallet, API credential, or trusted database connection.
+not a wallet, API credential, or trusted database connection. Its default result
+is `header_inclusion_verified`, not a claim of best-chain membership. For
+authenticated inclusion, supply a block hash from an independently trusted
+BSV testnet chain source. See [verification trust boundaries](PROOF-VERIFICATION.md).
 
 ## Live artifact
 

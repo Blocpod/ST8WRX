@@ -47,9 +47,11 @@ jobs:
               - 'deny.toml'
               - '.github/workflows/ci.yml'
               - 'scripts/run-tests.sh'
+              - 'scripts/run-anchor-worker.sh'
+              - 'scripts/test-anchor-worker.py'
               - 'scripts/model-capabilities.json'
               - 'scripts/normative-corpus.json'
-              - 'justfile'
+              - 'Justfile'
             desktop:
               - 'scripts/model-capabilities.json'
               - 'scripts/normative-corpus.json'
@@ -60,7 +62,11 @@ jobs:
               - 'desktop/src-tauri/**'
             web:
               - 'web/**'
+              - 'admin-web/**'
               - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'Justfile'
+              - '.github/workflows/ci.yml'
             mobile:
               - 'mobile/**'
               - 'scripts/mobile-worktree-overrides.sh'
@@ -313,7 +319,7 @@ jobs:
       contents: read
     env:
       SCCACHE_GHA_ENABLED: "true"
-      SCCACHE_GHA_RW_MODE: ${{ (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.number == 5224)) && 'READ_WRITE' || 'READ_ONLY' }}
+      SCCACHE_GHA_RW_MODE: ${{ github.event_name == 'push' && 'READ_WRITE' || 'READ_ONLY' }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: cashapp/activate-hermit@cea9af7913204a965fd488637a8d1811bba2e616 # v1
@@ -338,11 +344,10 @@ jobs:
             .
             desktop/src-tauri
           save-if: ${{ github.event_name != 'pull_request' }}
-      # Cache rustc outputs for unchanged workspace crates. Trusted pushes write;
-      # the bounded PR 5224 trial writes only to its isolated merge-ref scope.
+      # Cache rustc outputs for unchanged workspace crates. Only trusted pushes write.
       - name: Set up sccache
         if: steps.relay-artifacts-cache.outputs.cache-hit != 'true'
-        uses: Mozilla-Actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11 # zizmor: ignore[cache-poisoning] Bounded trial: only PR 5224 writes to its isolated merge-ref scope; trusted pushes retain production writes.
+        uses: Mozilla-Actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
         with:
           version: v0.16.0
       - name: Install cargo-nextest
@@ -360,6 +365,7 @@ jobs:
             --cargo-profile ci \
             -p buzz-db \
             -p buzz-relay \
+            -p buzz-workflow \
             -p buzz-test-client \
             --lib \
             --test e2e_event_reminder \
@@ -706,6 +712,42 @@ jobs:
             --run-ignored ignored-only
         env:
           DATABASE_URL: postgres://buzz:${{ env.BUZZ_TEST_POSTGRES_PASSWORD }}@localhost:5432/buzz
+      - name: ST8 compute accounting recovery
+        run: |
+          docker compose exec -T postgres createdb -U buzz st8_compute_ci
+          cargo nextest run \
+            --archive-file target/ci/backend-integration-tests.tar.zst \
+            -E 'package(buzz-relay) and test(/handlers::compute::tests/)' \
+            --run-ignored ignored-only
+        env:
+          BUZZ_COMPUTE_REPLAY_TEST_DATABASE_URL: postgres://buzz:${{ env.BUZZ_TEST_POSTGRES_PASSWORD }}@localhost:5432/st8_compute_ci
+      - name: ST8 contribution approval recovery
+        run: |
+          docker compose exec -T postgres createdb -U buzz st8_contribution_ci
+          cargo nextest run \
+            --archive-file target/ci/backend-integration-tests.tar.zst \
+            -E 'package(buzz-relay) and test(/handlers::contribution::recovery::tests/)' \
+            --run-ignored ignored-only
+        env:
+          BUZZ_CONTRIBUTION_REPLAY_TEST_DATABASE_URL: postgres://buzz:${{ env.BUZZ_TEST_POSTGRES_PASSWORD }}@localhost:5432/st8_contribution_ci
+      - name: Workflow approval and action recovery
+        run: |
+          docker compose exec -T postgres createdb -U buzz st8_workflow_ci
+          cargo nextest run \
+            --archive-file target/ci/backend-integration-tests.tar.zst \
+            -E 'package(buzz-relay) and test(workflow_readiness)' \
+            --run-ignored ignored-only
+        env:
+          BUZZ_WORKFLOW_TEST_DATABASE_URL: postgres://buzz:${{ env.BUZZ_TEST_POSTGRES_PASSWORD }}@localhost:5432/st8_workflow_ci
+      - name: ST8 anchor wallet recovery
+        run: |
+          docker compose exec -T postgres createdb -U buzz st8_anchor_ci
+          cargo nextest run \
+            --archive-file target/ci/backend-integration-tests.tar.zst \
+            -E 'package(buzz-db) and test(/contribution::anchor_recovery::tests/)' \
+            --run-ignored ignored-only
+        env:
+          BUZZ_ANCHOR_RECOVERY_TEST_DATABASE_URL: postgres://buzz:${{ env.BUZZ_TEST_POSTGRES_PASSWORD }}@localhost:5432/st8_anchor_ci
       - name: Workspace profile (kind:9033) gate tests
         # Call-site integration for the 9033 authorization gate: open relay
         # rosterless/steward transitions and the closed-relay admin/owner rule,
@@ -831,6 +873,12 @@ jobs:
         run: just web-check
       - name: Web build
         run: just web-build
+      - name: Admin frontend checks
+        run: just admin-web-check
+      - name: Install admin browser test dependencies
+        run: pnpm -C admin-web exec playwright install --with-deps chromium
+      - name: Admin browser tests
+        run: just admin-web-test
       - name: Save pnpm store cache
         if: github.event_name == 'push'
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5

@@ -5,6 +5,9 @@
 //! This crate is BSV-only and uses the Open BSV licensed official SDK. It never
 //! accepts or reads private keys, WIFs, mnemonics, or seed phrases.
 
+mod header;
+
+use header::{compute_header_hash, verify_header_pow};
 use std::io::Cursor;
 use std::time::Duration;
 
@@ -19,7 +22,6 @@ use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use st8_bsv_provenance::{
     transaction_id, verify_anchor_transaction, AnchorPayload, BroadcastReceipt, BsvNetwork,
     SignedAnchorTransaction,
@@ -49,7 +51,8 @@ pub struct BsvNetworkEvidence {
     pub arc_status: Value,
     /// WhatsOnChain block details used to verify the header and Merkle root.
     pub woc_block: Option<Value>,
-    /// Recomputed state: `seen_on_testnet` or `mined_spv_verified`.
+    /// Evidence state, never an assertion of independently verified chain membership.
+    /// Legacy `mined_spv_verified` and `seen_on_testnet` labels remain readable.
     pub verification_state: String,
 }
 
@@ -66,8 +69,17 @@ pub struct PersistedContributionReceipt {
 
 impl PersistedContributionReceipt {
     /// Verifies all signed contribution state, Atomic BEEF, raw transaction,
-    /// network observations, and available mined SPV/header evidence offline.
+    /// network observations, and header inclusion/PoW offline, not chain membership.
     pub fn verify(&self) -> anyhow::Result<()> {
+        self.verify_with_trusted_block_hash(None).map(|_| ())
+    }
+
+    /// Verifies the receipt and returns the derived trust state. The optional block hash
+    /// must come from the caller's independently trusted BSV testnet chain source.
+    pub fn verify_with_trusted_block_hash(
+        &self,
+        trusted_block_hash: Option<&str>,
+    ) -> anyhow::Result<&'static str> {
         if self.version != 1 {
             return Err(anyhow!("unsupported persisted receipt version"));
         }
@@ -75,7 +87,8 @@ impl PersistedContributionReceipt {
         if self.contribution.anchor_payload.network != BsvNetwork::Testnet {
             return Err(anyhow!("receipt is not a BSV testnet anchor"));
         }
-        verify_transaction_network(&self.contribution.transaction, &self.network)
+        let state = verify_transaction_network(&self.contribution.transaction, &self.network)?;
+        verify_trusted_block(&self.network, state, trusted_block_hash)
     }
 }
 
@@ -91,20 +104,50 @@ pub struct PersistedComputeSettlementReceipt {
 }
 
 impl PersistedComputeSettlementReceipt {
-    /// Verifies compute provenance, settlement math, exact anchor bytes, and network/SPV state.
+    /// Verifies compute provenance, settlement math, anchor bytes, and header inclusion/PoW.
+    /// Receipt-supplied observations alone do not authenticate chain membership.
     pub fn verify(&self) -> anyhow::Result<()> {
+        self.verify_with_trusted_block_hash(None).map(|_| ())
+    }
+
+    /// Verifies the receipt and returns its trust state, optionally pinning a block hash
+    /// obtained from the caller's independently trusted BSV testnet chain source.
+    pub fn verify_with_trusted_block_hash(
+        &self,
+        trusted_block_hash: Option<&str>,
+    ) -> anyhow::Result<&'static str> {
         if self.version != 1 {
             return Err(anyhow!("unsupported persisted compute receipt version"));
         }
         self.compute.verify()?;
-        verify_transaction_network(&self.compute.transaction, &self.network)
+        let state = verify_transaction_network(&self.compute.transaction, &self.network)?;
+        verify_trusted_block(&self.network, state, trusted_block_hash)
     }
+}
+
+fn verify_trusted_block(
+    network: &BsvNetworkEvidence,
+    state: &'static str,
+    trusted_block_hash: Option<&str>,
+) -> anyhow::Result<&'static str> {
+    if let Some(trusted_hash) = trusted_block_hash {
+        header::display_hash_wire_bytes(trusted_hash)?;
+        if state != "header_inclusion_verified"
+            || !json_string(&network.arc_status, "blockHash")?.eq_ignore_ascii_case(trusted_hash)
+        {
+            return Err(anyhow!(
+                "receipt does not match independently trusted block hash"
+            ));
+        }
+        return Ok("trusted_block_inclusion_verified");
+    }
+    Ok(state)
 }
 
 fn verify_transaction_network(
     transaction: &SignedAnchorTransaction,
     network: &BsvNetworkEvidence,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<&'static str> {
     let raw_hex = hex::encode(&transaction.raw_transaction);
     if !raw_hex.eq_ignore_ascii_case(&network.woc_raw_transaction_hex) {
         return Err(anyhow!("independent raw transaction mismatch"));
@@ -148,7 +191,7 @@ fn verify_transaction_network(
                 .as_ref()
                 .context("mined receipt is missing block evidence")?,
         )?;
-        "mined_spv_verified"
+        "header_inclusion_verified"
     } else if matches!(
         arc_state,
         "ANNOUNCED_TO_NETWORK"
@@ -157,14 +200,20 @@ fn verify_transaction_network(
             | "ACCEPTED_BY_NETWORK"
             | "SEEN_ON_NETWORK"
     ) {
-        "seen_on_testnet"
+        "network_observation_unverified"
     } else {
-        return Err(anyhow!("ARC has not proved testnet network acceptance"));
+        return Err(anyhow!(
+            "receipt does not report testnet network acceptance"
+        ));
     };
-    if network.verification_state != derived_state {
+    let legacy_state = match derived_state {
+        "header_inclusion_verified" => "mined_spv_verified",
+        _ => "seen_on_testnet",
+    };
+    if network.verification_state != derived_state && network.verification_state != legacy_state {
         return Err(anyhow!("stored BSV verification state was not derived"));
     }
-    Ok(())
+    Ok(derived_state)
 }
 
 /// HTTP clients and endpoints for one anchor worker.
@@ -409,9 +458,9 @@ impl AnchorServices {
                             arc_status,
                             woc_block,
                             verification_state: if status == "MINED" {
-                                "mined_spv_verified".into()
+                                "header_inclusion_verified".into()
                             } else {
-                                "seen_on_testnet".into()
+                                "network_observation_unverified".into()
                             },
                         };
                         verify_network_material(transaction, &evidence)?;
@@ -767,6 +816,7 @@ fn verify_mined_spv(
         return Err(anyhow!("BUMP block height mismatch"));
     }
     let header_hash = compute_header_hash(block)?;
+    verify_header_pow(block, &header_hash)?;
     let block_hash = json_string(block, "hash")?;
     if !header_hash.eq_ignore_ascii_case(block_hash)
         || !json_string(arc, "blockHash")?.eq_ignore_ascii_case(block_hash)
@@ -776,44 +826,10 @@ fn verify_mined_spv(
     }
     if json_u64(block, "confirmations")? == 0 || json_u64(woc_transaction, "confirmations")? == 0 {
         return Err(anyhow!(
-            "transaction block is not confirmed on the BSV testnet chain"
+            "receipt does not report positive block confirmations"
         ));
     }
     Ok(())
-}
-
-fn compute_header_hash(block: &Value) -> anyhow::Result<String> {
-    let version = u32::try_from(json_u64(block, "version")?)?;
-    let previous = display_hash_wire_bytes(json_string(block, "previousblockhash")?)?;
-    let merkle = display_hash_wire_bytes(json_string(block, "merkleroot")?)?;
-    let time = u32::try_from(json_u64(block, "time")?)?;
-    let bits_value = block.get("bits").context("block missing bits")?;
-    let bits = if let Some(text) = bits_value.as_str() {
-        u32::from_str_radix(text.trim_start_matches("0x"), 16)?
-    } else {
-        u32::try_from(bits_value.as_u64().context("invalid block bits")?)?
-    };
-    let nonce = u32::try_from(json_u64(block, "nonce")?)?;
-    let mut header = Vec::with_capacity(80);
-    header.extend_from_slice(&version.to_le_bytes());
-    header.extend_from_slice(&previous);
-    header.extend_from_slice(&merkle);
-    header.extend_from_slice(&time.to_le_bytes());
-    header.extend_from_slice(&bits.to_le_bytes());
-    header.extend_from_slice(&nonce.to_le_bytes());
-    let first = Sha256::digest(&header);
-    let mut second: [u8; 32] = Sha256::digest(first).into();
-    second.reverse();
-    Ok(hex::encode(second))
-}
-
-fn display_hash_wire_bytes(value: &str) -> anyhow::Result<Vec<u8>> {
-    let mut bytes = hex::decode(value)?;
-    if bytes.len() != 32 {
-        return Err(anyhow!("header hash field is not 32 bytes"));
-    }
-    bytes.reverse();
-    Ok(bytes)
 }
 
 fn verify_json_txid(value: &Value, expected: &str) -> anyhow::Result<()> {
@@ -847,22 +863,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn block_header_hash_matches_known_genesis_vector() {
-        let block = serde_json::json!({
-            "version": 1,
-            "previousblockhash": "00".repeat(32),
-            "merkleroot": "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
-            "time": 1231006505,
-            "bits": "1d00ffff",
-            "nonce": 2083236893u64,
-        });
-        assert_eq!(
-            compute_header_hash(&block).expect("header hash"),
-            "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
-        );
-    }
-
-    #[test]
     fn network_txid_substitution_is_rejected() {
         let expected = "11".repeat(32);
         let substituted = serde_json::json!({"txid": "22".repeat(32)});
@@ -871,7 +871,7 @@ mod tests {
 
     #[test]
     fn malformed_header_digest_is_rejected() {
-        assert!(display_hash_wire_bytes("abcd").is_err());
+        assert!(header::display_hash_wire_bytes("abcd").is_err());
     }
 
     #[test]
@@ -891,3 +891,6 @@ mod tests {
         assert!(services.wallet.is_none());
     }
 }
+
+#[cfg(test)]
+mod verification_tests;

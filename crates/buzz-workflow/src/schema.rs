@@ -139,7 +139,7 @@ pub enum ActionDef {
     },
     /// Suspend execution and request approval.
     RequestApproval {
-        /// User mention or role (e.g. `"@release-manager"`).
+        /// Exact public key hex, or `"any"` for a channel member.
         from: String,
         /// Message shown to the approver.
         message: String,

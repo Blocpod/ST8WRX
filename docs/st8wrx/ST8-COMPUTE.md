@@ -32,6 +32,7 @@ measurements, identities, and signed linkage—not the private bodies.
 | 49812 | provider + embedded Mesh signature | deterministic compute receipt |
 | 49813 | requester or project owner | receipt dispute/freeze |
 | 49814 | project owner | deterministic settlement |
+| 49815 | project owner | final receipt-dispute arbitration |
 | 30628 | relay only | queryable receipt-ledger projection |
 | 30629 | relay only | queryable settlement/anchor projection |
 
@@ -70,6 +71,30 @@ lock and atomically consumes the exact terminal, undisputed receipt set. This
 includes failed or cancelled work so a policy that explicitly bills observed
 failed usage cannot create charges that are permanently stranded outside a
 settlement.
+
+The project owner arbitrates compute disputes, matching the existing settlement
+signing authority. Contribution Unit founder thresholds do not authorize compute
+arbitration. A resolution binds the exact accepted dispute event and receipt:
+`uphold_charge` rejects the dispute and releases the full original charge;
+`void_charge` upholds the dispute and permanently excludes the charge. One final
+signed decision is allowed per receipt, with no partial adjustment, repricing,
+reopening, or reversal after settlement. The original signed receipt and metered
+cost remain immutable. Ledger projections retain the signed resolution and
+`billable_cost_sats`; provider balances report voided amounts separately from
+earnings. Database states `resolved_rejected` and `resolved_upheld` refer to the
+**dispute**, respectively, not the charge.
+
+For compatibility with historical settlement signatures, `disputed_receipt_ids`
+contains both unresolved disputes and final void decisions. A voided receipt
+remains excluded; a released charge can be consumed exactly once. A period with
+no billable receipts needs no settlement or blockchain transaction.
+
+Retained inputs are replayed at startup and during the existing reconciliation
+interval, in job, receipt, dispute, resolution, settlement order. Missing
+dependencies are retried later; malformed inputs cannot block unrelated work.
+Database outages stop replay before settlement. Exact duplicate event delivery
+retries projection without repeating the input broadcast. Already committed
+settlements preserve their original signed input and worker state.
 
 The settlement contains sorted receipt IDs, explicit disputed exclusions,
 provider/node balances, integer total satoshis, and a project-scoped receipt
@@ -125,6 +150,7 @@ st8-compute publish-capability --help
 st8-compute run --help
 st8-compute verify-receipt --help
 st8-compute dispute --help
+st8-compute resolve --help
 st8-compute settle --help
 ```
 
@@ -140,6 +166,10 @@ buzz compute receipts --project '30621:<owner>:<slug>' --status completed
 buzz compute balances --project '30621:<owner>:<slug>'
 buzz compute settlements --project '30621:<owner>:<slug>'
 buzz compute show-receipt <receipt-id>
+buzz compute resolve --project '30621:<owner>:<slug>' \
+  --receipt-id '<receipt-id>' --dispute-event-id '<dispute-event-id>' \
+  --outcome uphold_charge --reason 'The signed authorization and usage agree'
+
 ```
 
 The external-wallet worker uses the same `ST8_WALLET_URL` BRC-100 boundary as
@@ -156,3 +186,46 @@ binding, runtime measurement price, settlement receipt set and balances,
 receipt Merkle root, BSV payload, raw-transaction txid, exact output script,
 Atomic BEEF subject, independent testnet observation, and available mined
 BUMP/header proof.
+
+## Private answer delivery and interrupted runs
+
+A local run retains the useful answer separately from the public accounting
+artifact. Both output directories must already exist:
+
+```bash
+st8-compute run \
+  --project-event project.json --pricing-event pricing.json \
+  --prompt-file private-prompt.txt --model '<hosted-model>' \
+  --relay-url 'ws://127.0.0.1:3000' \
+  --max-cost-sats 100 --max-output-tokens 512 --expires-in-secs 600 \
+  --private-output private-answer.txt --output receipt.json
+st8-compute resume --state receipt.state.json
+```
+
+The private answer is exclusively created, mode 0600 on Unix, and is never
+included in signed events or public receipts. The token budget and remaining
+job expiry bound the request. Preflight rejects an unaffordable fixed/minimum
+charge plus the requested output allowance; actual input and wall-time charges
+still undergo the final signed-cap check. Only literal loopback Mesh endpoints
+are accepted and private inference does not follow HTTP redirects.
+
+Signed events and their publication cursor are durably saved before publishing.
+Resume requires the original requester/provider identities, republishes saved
+pending events, and never repeats inference. An interrupted run without retained
+terminal evidence becomes cancelled. Failed or unmeasurable runs retain terminal
+job-result evidence without inventing a billable compute receipt. An HTTP
+cancellation may not immediately stop native generation. See the
+[runtime recovery guide](../../crates/st8-compute-runtime/README.md) for lock
+recovery and the remaining local-delivery limitations.
+
+## Recovery and arbitration tests
+
+Run the PostgreSQL-backed replay/resolution tests against an isolated migrated
+test database. They cover storage-only crashes, delayed dependencies, pagination,
+unauthorized signers, final-decision conflicts, settlement races, and tenant
+isolation. The test suite applies migrations and creates unique test communities.
+
+```bash
+BUZZ_COMPUTE_REPLAY_TEST_DATABASE_URL='postgres://.../st8_compute_test' \
+  cargo test -p buzz-relay --lib handlers::compute::tests -- --ignored
+```

@@ -302,6 +302,52 @@ Replies are kind:9 in the same channel; `buzz messages thread --channel <id>
 
 ---
 
+## ST8WRX accounting and proof checks
+
+`just test-unit` runs all seven ST8 crates, workflow unit tests, and the anchor
+supervisor tests. Retained testnet receipts are verified offline; these tests
+do not access a wallet, broadcast, or transfer funds. The supervisor tests use a
+fake worker binary. `just ci` also builds the admin dashboard and runs its browser
+tests against a mocked API.
+
+Compute recovery tests use a separate PostgreSQL database explicitly selected by
+`BUZZ_COMPUTE_REPLAY_TEST_DATABASE_URL`. Never point it at a working community's
+database. Create a disposable database using your local PostgreSQL administrator,
+then run:
+
+```bash
+. ./bin/activate-hermit
+BUZZ_COMPUTE_REPLAY_TEST_DATABASE_URL='postgresql:///st8_compute_test?host=/tmp' \
+  cargo test -p buzz-relay --lib handlers::compute::tests -- --ignored
+```
+
+Substitute the connection string for your isolated database. Tests apply embedded
+migrations and create uniquely named communities. CI creates `st8_compute_ci`
+inside its disposable PostgreSQL service and runs the same tests. Pure protocol
+tests cannot replace this persistence/replay check.
+
+Further persistence suites require their own disposable databases:
+
+```bash
+BUZZ_CONTRIBUTION_REPLAY_TEST_DATABASE_URL='postgresql:///st8_contribution_test?host=/tmp' \
+  cargo test -p buzz-relay --lib handlers::contribution::recovery::tests -- --ignored
+BUZZ_WORKFLOW_TEST_DATABASE_URL='postgresql:///st8_workflow_test?host=/tmp' \
+  cargo test -p buzz-relay --lib workflow_readiness -- --ignored
+BUZZ_ANCHOR_RECOVERY_TEST_DATABASE_URL='postgresql:///st8_anchor_test?host=/tmp' \
+  cargo test -p buzz-db --lib contribution::anchor_recovery::tests -- --ignored
+```
+
+Create these databases first. The workflow suite exercises approval transactions,
+restart recovery, and scoped actions; the anchor suite exercises both queues,
+ambiguous wallet fences, exact-transaction recovery, and larger contribution
+snapshots. Neither suite contacts a wallet or broadcasts transactions.
+
+Build output is disposable, while source, `.env`, identities, databases, and proof
+receipts are not. After all build/test processes stop, `just clean` removes both
+Rust target directories. For only the desktop Rust cache, use
+`cargo clean --manifest-path desktop/src-tauri/Cargo.toml`. Subsequent builds will
+recompile dependencies; do not clean underneath an active build.
+
 ## Configuration reference
 
 The relay reads all configuration from environment variables. Defaults work

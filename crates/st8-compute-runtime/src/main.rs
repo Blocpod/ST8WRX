@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use st8_compute_engine::{
-    ComputeDispute, ComputeJobContext, NodeCapabilityAttestation, NodeReceiptAttestation,
-    PricingContext, SettlementContext, VerifiedComputeReceipt,
+    ComputeDispute, ComputeJobContext, ComputeResolution, NodeCapabilityAttestation,
+    NodeReceiptAttestation, PricingContext, SettlementContext, VerifiedComputeReceipt,
 };
 use st8_compute_protocol::{
     AcceleratorCapability, ComputeJob, ComputeReceipt, ComputeSettlement, ExecutionStatus,
@@ -26,6 +26,9 @@ use st8_compute_runtime::{
     validate_private_local_provider, MeasuredMeshExecution,
 };
 use st8_contribution_engine::BuzzProjectContext;
+
+mod execution;
+use execution::{execute, ExecuteArgs};
 
 const KIND_JOB_REQUEST: u16 = 43_001;
 const KIND_JOB_RESULT: u16 = 43_004;
@@ -111,8 +114,18 @@ enum Command {
         max_cost_sats: u64,
         #[arg(long, default_value_t = 600)]
         expires_in_secs: i64,
+        #[arg(long, default_value_t = 512)]
+        max_output_tokens: u32,
+        /// Local private answer file; never included in public receipts.
+        #[arg(long)]
+        private_output: PathBuf,
         #[arg(long)]
         output: PathBuf,
+    },
+    /// Retries saved publications without rerunning private inference.
+    Resume {
+        #[arg(long)]
+        state: PathBuf,
     },
     /// Independently verifies retained signed job/receipt material without runtime access.
     VerifyReceipt {
@@ -125,6 +138,23 @@ enum Command {
         project_event: PathBuf,
         #[arg(long)]
         receipt: PathBuf,
+        #[arg(long)]
+        reason: String,
+        #[arg(long)]
+        relay_url: String,
+        #[arg(long)]
+        output: PathBuf,
+    },
+    /// Publishes the project owner's final uphold-or-void decision on an exact dispute.
+    Resolve {
+        #[arg(long)]
+        project_event: PathBuf,
+        #[arg(long)]
+        receipt: PathBuf,
+        #[arg(long)]
+        dispute_event: PathBuf,
+        #[arg(long, value_parser = ["uphold_charge", "void_charge"])]
+        outcome: String,
         #[arg(long)]
         reason: String,
         #[arg(long)]
@@ -319,6 +349,8 @@ async fn run() -> anyhow::Result<()> {
             mesh_console_url,
             max_cost_sats,
             expires_in_secs,
+            max_output_tokens,
+            private_output,
             output,
         } => {
             let artifact = execute(ExecuteArgs {
@@ -331,6 +363,8 @@ async fn run() -> anyhow::Result<()> {
                 mesh_console_url,
                 max_cost_sats,
                 expires_in_secs,
+                max_output_tokens,
+                private_output,
                 output,
             })
             .await?;
@@ -343,12 +377,12 @@ async fn run() -> anyhow::Result<()> {
                 artifact.verified.attestation.receipt.routing_target
             );
         }
+        Command::Resume { state } => execution::resume(&state).await?,
         Command::VerifyReceipt { receipt } => {
             let artifact: ComputeRunArtifact = serde_json::from_slice(&std::fs::read(receipt)?)?;
             artifact.verified.verify()?;
-            if artifact.private_output_persisted
-                || artifact.output_commitment
-                    != hex::encode(artifact.verified.attestation.receipt.result_commitment)
+            if artifact.output_commitment
+                != hex::encode(artifact.verified.attestation.receipt.result_commitment)
             {
                 return Err(anyhow!("compute artifact privacy/commitment mismatch"));
             }
@@ -386,6 +420,37 @@ async fn run() -> anyhow::Result<()> {
                 "dispute_event_id={} receipt_id={}",
                 event.id,
                 hex::encode(body.receipt_id)
+            );
+        }
+        Command::Resolve {
+            project_event,
+            receipt,
+            dispute_event,
+            outcome,
+            reason,
+            relay_url,
+            output,
+        } => {
+            let project = BuzzProjectContext::from_event(&read_event(&project_event)?)?;
+            let artifact: ComputeRunArtifact = serde_json::from_slice(&std::fs::read(receipt)?)?;
+            let dispute = read_event(&dispute_event)?;
+            let owner = project_owner_keys()?;
+            let resolution = ComputeResolution {
+                project: project.project.clone(),
+                receipt_id: artifact.verified.attestation.receipt.id()?,
+                dispute_event_id: *dispute.id.as_bytes(),
+                outcome: serde_json::from_value(Value::String(outcome))?,
+                resolved_at: chrono::Utc::now().timestamp(),
+                reason,
+            };
+            let event = resolution.event_builder()?.sign_with_keys(&owner)?;
+            ComputeResolution::from_event(&project, &artifact.verified, &dispute, &event)?;
+            write_json(&output, &event)?;
+            publish(&relay_url, event.clone(), &owner).await?;
+            println!(
+                "resolution_event_id={} receipt_id={}",
+                event.id,
+                hex::encode(resolution.receipt_id)
             );
         }
         Command::Settle {
@@ -440,246 +505,6 @@ async fn run() -> anyhow::Result<()> {
         }
     }
     Ok(())
-}
-
-struct ExecuteArgs {
-    project_event: Event,
-    pricing_event: Event,
-    prompt: String,
-    model: String,
-    relay_url: String,
-    mesh_api_url: String,
-    mesh_console_url: String,
-    max_cost_sats: u64,
-    expires_in_secs: i64,
-    output: PathBuf,
-}
-
-async fn execute(args: ExecuteArgs) -> anyhow::Result<ComputeRunArtifact> {
-    if args.prompt.is_empty() {
-        return Err(anyhow!("private prompt is empty"));
-    }
-    let requester = requester_keys()?;
-    let provider = provider_keys()?;
-    let project = BuzzProjectContext::from_event(&args.project_event)?;
-    let pricing = PricingContext::from_event(&project, &args.pricing_event)?;
-    if pricing.policy.provider != nostr_identity(&provider) {
-        return Err(anyhow!(
-            "provider key does not own the signed pricing policy"
-        ));
-    }
-    let owner = mesh_owner()?;
-    if owner.owner_id != pricing.policy.node_owner_id {
-        return Err(anyhow!("local Mesh owner does not match pricing policy"));
-    }
-    validate_private_local_provider(
-        &fetch_mesh_json(&args.mesh_console_url, "api/status").await?,
-        &args.model,
-    )?;
-    let before = target_counters(&fetch_models(&args.mesh_console_url).await?, &args.model)?;
-    let input_commitment: [u8; 32] = Sha256::digest(args.prompt.as_bytes()).into();
-    let provider_hex = provider.public_key().to_hex();
-    let request_event = EventBuilder::new(
-        Kind::Custom(KIND_JOB_REQUEST),
-        serde_json::json!({
-            "version": 1,
-            "workload": "llm_inference",
-            "model": args.model,
-            "private_input": true,
-            "input_commitment": hex::encode(input_commitment)
-        })
-        .to_string(),
-    )
-    .tags([
-        tag(["a", project.project.as_str()])?,
-        tag(["p", provider_hex.as_str()])?,
-        tag(["st8-input", hex::encode(input_commitment).as_str()])?,
-    ])
-    .sign_with_keys(&requester)?;
-    let now = chrono::Utc::now().timestamp();
-    let expires_at = now
-        .checked_add(args.expires_in_secs)
-        .context("job expiration overflow")?;
-    let mut nonce_bytes = Vec::from(request_event.id.as_bytes());
-    nonce_bytes.extend_from_slice(
-        &chrono::Utc::now()
-            .timestamp_nanos_opt()
-            .unwrap_or(0)
-            .to_be_bytes(),
-    );
-    let nonce: [u8; 32] = Sha256::digest(nonce_bytes).into();
-    let job = ComputeJob {
-        project: project.project.clone(),
-        requester: nostr_identity(&requester),
-        provider: pricing.policy.provider.clone(),
-        node_owner_id: owner.owner_id.clone(),
-        workload: WorkloadKind::LlmInference,
-        agent: None,
-        model: args.model.clone(),
-        pricing_policy_id: pricing.policy.id()?,
-        input_commitment,
-        request_event_id: *request_event.id.as_bytes(),
-        max_cost_sats: args.max_cost_sats,
-        created_at: now,
-        expires_at,
-        nonce,
-    };
-    let job_event = ComputeJobContext::event_builder(&job)?.sign_with_keys(&requester)?;
-    publish(&args.relay_url, request_event.clone(), &requester).await?;
-    publish(&args.relay_url, job_event.clone(), &requester).await?;
-
-    let started_at_ms = chrono::Utc::now().timestamp_millis();
-    let timer = Instant::now();
-    let response = reqwest::Client::new()
-        .post(format!(
-            "{}/chat/completions",
-            args.mesh_api_url.trim_end_matches('/')
-        ))
-        .json(&serde_json::json!({
-            "model": args.model,
-            "stream": false,
-            "messages": [{"role": "user", "content": args.prompt}]
-        }))
-        .send()
-        .await?;
-    let status = response.status();
-    let response_body: Value = response.json().await?;
-    let elapsed_ms = u64::try_from(timer.elapsed().as_millis())?;
-    let ended_at_ms = chrono::Utc::now().timestamp_millis();
-    let after = target_counters(&fetch_models(&args.mesh_console_url).await?, &args.model)?;
-    let (execution_status, measured, private_result) = if status.is_success() {
-        let prompt_tokens = response_body
-            .pointer("/usage/prompt_tokens")
-            .and_then(Value::as_u64);
-        let completion_tokens = response_body
-            .pointer("/usage/completion_tokens")
-            .and_then(Value::as_u64);
-        let content = response_body
-            .pointer("/choices/0/message/content")
-            .and_then(Value::as_str)
-            .context("Mesh response omitted assistant content")?;
-        (
-            ExecutionStatus::Completed,
-            derive_completed_execution(
-                &before,
-                &after,
-                prompt_tokens,
-                completion_tokens,
-                elapsed_ms,
-            )?,
-            content.as_bytes().to_vec(),
-        )
-    } else {
-        (
-            ExecutionStatus::Failed,
-            derive_failed_execution(&before, &after, elapsed_ms)?,
-            serde_json::to_vec(&response_body)?,
-        )
-    };
-    finalize_execution(
-        args,
-        project,
-        pricing,
-        owner,
-        provider,
-        request_event,
-        job_event,
-        job,
-        execution_status,
-        measured,
-        private_result,
-        started_at_ms,
-        ended_at_ms,
-    )
-    .await
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn finalize_execution(
-    args: ExecuteArgs,
-    project: BuzzProjectContext,
-    pricing: PricingContext,
-    owner: MeshOwner,
-    provider: Keys,
-    request_event: Event,
-    job_event: Event,
-    job: ComputeJob,
-    status: ExecutionStatus,
-    measured: MeasuredMeshExecution,
-    private_result: Vec<u8>,
-    started_at_ms: i64,
-    ended_at_ms: i64,
-) -> anyhow::Result<ComputeRunArtifact> {
-    let output_commitment: [u8; 32] = Sha256::digest(&private_result).into();
-    let request_hex = request_event.id.to_hex();
-    let result_event = EventBuilder::new(
-        Kind::Custom(KIND_JOB_RESULT),
-        serde_json::json!({
-            "version": 1,
-            "status": status,
-            "model": args.model,
-            "private_output": true,
-            "output_commitment": hex::encode(output_commitment)
-        })
-        .to_string(),
-    )
-    .tags([
-        tag(["a", project.project.as_str()])?,
-        tag(["e", request_hex.as_str()])?,
-        tag(["st8-request", request_hex.as_str()])?,
-        tag(["st8-output", hex::encode(output_commitment).as_str()])?,
-    ])
-    .sign_with_keys(&provider)?;
-    let price = pricing.policy.price(status, &measured.usage)?;
-    let receipt = ComputeReceipt {
-        job_id: job.id()?,
-        project: job.project.clone(),
-        requester: job.requester.clone(),
-        provider: job.provider.clone(),
-        node_owner_id: job.node_owner_id.clone(),
-        workload: job.workload,
-        agent: job.agent.clone(),
-        model: job.model.clone(),
-        pricing_policy_id: job.pricing_policy_id,
-        request_event_id: job.request_event_id,
-        result_event_id: *result_event.id.as_bytes(),
-        agent_metric_event_id: None,
-        started_at_ms,
-        ended_at_ms,
-        usage: measured.usage,
-        price,
-        result_commitment: output_commitment,
-        status,
-        routing_target: measured.routing_target,
-        meter_version: "mesh-openai-target-delta-v1".into(),
-        evidence: Vec::new(),
-    };
-    receipt.validate_for(&job, &pricing.policy)?;
-    let mut attestation = NodeReceiptAttestation {
-        receipt,
-        node_public_key: owner.public_key,
-        node_signature: Vec::new(),
-    };
-    attestation.node_signature = owner.sign(&attestation.signing_bytes()?)?;
-    let receipt_event = attestation.event_builder()?.sign_with_keys(&provider)?;
-    let verified = VerifiedComputeReceipt::from_events(
-        project,
-        &pricing.event,
-        &job_event,
-        &request_event,
-        &result_event,
-        &receipt_event,
-    )?;
-    let artifact = ComputeRunArtifact {
-        version: 1,
-        verified,
-        output_commitment: hex::encode(output_commitment),
-        private_output_persisted: false,
-    };
-    write_json(&args.output, &artifact)?;
-    publish(&args.relay_url, result_event, &provider).await?;
-    publish(&args.relay_url, receipt_event, &provider).await?;
-    Ok(artifact)
 }
 
 struct MeshOwner {
@@ -867,10 +692,34 @@ fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
         .file_name()
         .and_then(|name| name.to_str())
         .context("invalid output filename")?;
-    let temporary = parent.join(format!(".{name}.tmp"));
-    std::fs::write(&temporary, serde_json::to_vec_pretty(value)?)?;
-    std::fs::rename(temporary, path)?;
-    Ok(())
+    let temporary = parent.join(format!(
+        ".{name}.{}-{}.tmp",
+        std::process::id(),
+        chrono::Utc::now()
+            .timestamp_nanos_opt()
+            .context("timestamp overflow")?
+    ));
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&temporary)?;
+    let result = (|| -> anyhow::Result<()> {
+        file.write_all(&serde_json::to_vec_pretty(value)?)?;
+        file.sync_all()?;
+        std::fs::rename(&temporary, path)?;
+        #[cfg(unix)]
+        std::fs::File::open(parent)?.sync_all()?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(temporary);
+    }
+    result
 }
 
 fn tag<const N: usize>(values: [&str; N]) -> anyhow::Result<Tag> {

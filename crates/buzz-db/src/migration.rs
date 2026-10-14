@@ -640,7 +640,11 @@ mod tests {
         let mut migrations: Vec<_> = MIGRATOR.iter().collect();
         migrations.sort_by_key(|migration| migration.version);
 
-        assert_eq!(migrations.len(), 35);
+        assert_eq!(migrations.len(), 37);
+        assert_eq!(migrations[36].version, 37);
+        assert!(migrations[36].sql.as_str().contains("wallet_requested_at"));
+        assert_eq!(migrations[35].version, 36);
+        assert!(migrations[35].sql.as_str().contains("resolution_event_id"));
         assert_eq!(migrations[0].version, 1);
         assert_eq!(&*migrations[0].description, "initial schema");
         assert!(migrations[0]

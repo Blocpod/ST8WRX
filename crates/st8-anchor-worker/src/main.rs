@@ -1,5 +1,8 @@
 #![deny(unsafe_code)]
 
+mod recovery;
+
+use buzz_db::contribution::anchor_recovery::AnchorQueue;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -24,6 +27,27 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Lists wallet requests requiring operator reconciliation; no wallet calls.
+    ListWalletRecoveries {
+        #[arg(long)]
+        database_url: Option<String>,
+    },
+    /// Restores exact public transaction bytes from an ambiguous wallet call; never spends.
+    RecoverWalletTransaction {
+        #[arg(long)]
+        database_url: Option<String>,
+        /// contribution or compute.
+        #[arg(long, value_parser = ["contribution", "compute"])]
+        queue: String,
+        #[arg(long)]
+        community_id: String,
+        /// Snapshot or settlement digest shown by list-wallet-recoveries.
+        #[arg(long)]
+        anchor_id: String,
+        /// SignedAnchorTransaction JSON exported from the external wallet.
+        #[arg(long)]
+        transaction: PathBuf,
+    },
     /// Claims and processes one queued project snapshot.
     RunOnce {
         /// PostgreSQL URL; defaults to DATABASE_URL.
@@ -72,17 +96,25 @@ enum Command {
         #[arg(long)]
         receipt_out: Option<PathBuf>,
     },
-    /// Independently verifies a persisted public receipt without wallet access.
+    /// Verifies receipt integrity and header inclusion without wallet access.
     Verify {
         /// Persisted receipt JSON.
         #[arg(long)]
         receipt: PathBuf,
+        /// Block hash from an independently trusted BSV testnet chain source.
+        /// Never copy this value from the receipt being verified.
+        #[arg(long)]
+        trusted_block_hash: Option<String>,
     },
-    /// Independently verifies a persisted ST8 Compute settlement receipt.
+    /// Verifies compute receipt integrity and header inclusion without wallet access.
     VerifyCompute {
         /// Persisted compute receipt JSON.
         #[arg(long)]
         receipt: PathBuf,
+        /// Block hash from an independently trusted BSV testnet chain source.
+        /// Never copy this value from the receipt being verified.
+        #[arg(long)]
+        trusted_block_hash: Option<String>,
     },
     /// Refreshes public network proof for an existing receipt without wallet access.
     RefreshReceipt {
@@ -132,25 +164,48 @@ async fn main() {
 
 async fn run() -> anyhow::Result<()> {
     match Cli::parse().command {
-        Command::Verify { receipt } => {
+        Command::ListWalletRecoveries { database_url } => recovery::list(database_url).await?,
+        Command::RecoverWalletTransaction {
+            database_url,
+            queue,
+            community_id,
+            anchor_id,
+            transaction,
+        } => {
+            recovery::recover(
+                database_url,
+                &queue,
+                &community_id,
+                &anchor_id,
+                &transaction,
+            )
+            .await?;
+        }
+        Command::Verify {
+            receipt,
+            trusted_block_hash,
+        } => {
             let receipt: PersistedContributionReceipt =
                 serde_json::from_slice(&std::fs::read(&receipt)?)?;
-            receipt.verify()?;
+            let state = receipt.verify_with_trusted_block_hash(trusted_block_hash.as_deref())?;
             println!(
                 "verified txid={} state={}",
                 hex::encode(receipt.contribution.transaction.txid),
-                receipt.network.verification_state
+                state
             );
         }
-        Command::VerifyCompute { receipt } => {
+        Command::VerifyCompute {
+            receipt,
+            trusted_block_hash,
+        } => {
             let receipt: PersistedComputeSettlementReceipt =
                 serde_json::from_slice(&std::fs::read(&receipt)?)?;
-            receipt.verify()?;
+            let state = receipt.verify_with_trusted_block_hash(trusted_block_hash.as_deref())?;
             println!(
                 "verified_compute txid={} settlement_id={} state={}",
                 hex::encode(receipt.compute.transaction.txid),
                 hex::encode(receipt.compute.prepared.settlement.settlement.id()?),
-                receipt.network.verification_state
+                state
             );
         }
         Command::RefreshReceipt {
@@ -363,6 +418,13 @@ async fn process_job(
             (transaction, arc_submission)
         }
         (None, None, None, None) => {
+            db.begin_anchor_wallet_request(
+                AnchorQueue::Contribution,
+                job.community_id,
+                &job.snapshot_id,
+                worker_id,
+            )
+            .await?;
             let transaction = services.create_signed_transaction(&prepared).await?;
             db.save_anchor_transaction(
                 job,
@@ -457,6 +519,13 @@ async fn process_compute_job(
             (transaction, arc_submission)
         }
         (None, None, None, None) => {
+            db.begin_anchor_wallet_request(
+                AnchorQueue::Compute,
+                job.community_id,
+                &job.settlement_id,
+                worker_id,
+            )
+            .await?;
             let settlement_id = hex::encode(prepared.settlement.settlement.id()?);
             let transaction = services
                 .create_signed_anchor_transaction(

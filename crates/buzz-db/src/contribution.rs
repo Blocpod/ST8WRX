@@ -4,6 +4,9 @@
 //! threshold is satisfied. A separate worker claims anchor jobs with
 //! `FOR UPDATE SKIP LOCKED`; blockchain latency never enters event ingest.
 
+/// Operator-only reconciliation of ambiguous external-wallet requests.
+pub mod anchor_recovery;
+
 use std::time::Duration;
 
 use buzz_core::CommunityId;
@@ -51,7 +54,7 @@ pub struct NewProjectSnapshot {
     /// Project-scoped Merkle root.
     pub merkle_root: Vec<u8>,
     /// Number of committed accepted contribution leaves.
-    pub leaf_count: i32,
+    pub leaf_count: i64,
     /// Complete canonical snapshot representation.
     pub snapshot: Value,
     /// Prepared testnet anchor representation consumed by the wallet worker.
@@ -436,6 +439,7 @@ impl Db {
                FROM st8_anchor_jobs
               WHERE ((status IN ('queued','failed','broadcast') AND next_attempt_at <= NOW())
                      OR (status = 'leased' AND lease_until < NOW()))
+                AND (wallet_requested_at IS NULL OR txid IS NOT NULL)
               ORDER BY next_attempt_at, created_at
               FOR UPDATE SKIP LOCKED LIMIT 1",
         )
@@ -475,9 +479,8 @@ impl Db {
         }))
     }
 
-    /// Saves wallet-signed transaction material under the current lease before
-    /// broadcast. A crashed worker therefore resumes the same transaction
-    /// instead of asking the wallet to fund another one.
+    /// Saves wallet-signed material before independent observation. The separately
+    /// persisted wallet intent prevents re-funding if a crash preceded this write.
     pub async fn save_anchor_transaction(
         &self,
         job: &AnchorJobRecord,
@@ -670,7 +673,7 @@ fn validate_entry(entry: &NewContributionLedgerEntry) -> Result<()> {
         || entry.project_snapshot.as_ref().is_some_and(|snapshot| {
             snapshot.snapshot_id.len() != 32
                 || snapshot.merkle_root.len() != 32
-                || !(1..=4096).contains(&snapshot.leaf_count)
+                || !(1..=i64::from(u32::MAX)).contains(&snapshot.leaf_count)
         })
     {
         return Err(DbError::InvalidData("invalid ST8 digest length".into()));

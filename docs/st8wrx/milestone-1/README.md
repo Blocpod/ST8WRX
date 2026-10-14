@@ -22,7 +22,8 @@ governance identities.
 - Merkle root: `bb9eef492e23269efea4ead5ac4d3f2f759a2b82a87dad2100cee15483080af8`
 - BSV testnet txid: `732609ae6ea8df7883a2229a5af9ab8b32316e7101c108a93c962668aa4538b9`
 - Mined block: `1754486` / `0000000000c046761bce820232597af48e915d011a3e3cd4bf6bd78b06f00224`
-- Verification: `mined_spv_verified`
+- Historical receipt label: `mined_spv_verified`; current offline result:
+  `header_inclusion_verified` ([trust boundary](../PROOF-VERIFICATION.md))
 
 ## Verify
 

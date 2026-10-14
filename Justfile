@@ -92,7 +92,7 @@ build-release:
     cargo build --workspace --release
 
 # Run repo lint, formatting, and repository policy checks
-check: fmt-check clippy desktop-check desktop-tauri-fmt-check desktop-tauri-clippy web-check mobile-check file-size-check
+check: fmt-check clippy desktop-check desktop-tauri-fmt-check desktop-tauri-clippy web-check admin-web-check mobile-check file-size-check
 
 # Run the repository-wide differential file-size ratchet and its policy tests.
 # The ratchet inspects only files changed from the merge base, so this stays
@@ -295,7 +295,7 @@ desktop-e2e-pre-push: _ensure-migrations
     cd {{desktop_dir}} && pnpm build:e2e && pnpm exec playwright test --only-changed=origin/main
 
 # Run all checks suitable for CI / pre-push (no infra needed)
-ci: check test-unit desktop-test desktop-build desktop-tauri-check desktop-tauri-test web-build mobile-test
+ci: check test-unit desktop-test desktop-build desktop-tauri-check desktop-tauri-test web-build admin-web-test mobile-test
 
 # ─── Test ─────────────────────────────────────────────────────────────────────
 
@@ -308,6 +308,7 @@ test-unit:
     #!/usr/bin/env bash
     set -euo pipefail
     if command -v cargo-nextest &>/dev/null; then
+        python3 scripts/test-anchor-worker.py
         cargo nextest run -p buzz-core -p buzz-auth --lib
         cargo nextest run -p buzz-voice --lib
         cargo nextest run -p buzz-cli
@@ -340,6 +341,8 @@ test-unit:
         # `cargo test --workspace`; without this step a manifest edit that
         # diverges Rust from the corpus ships green.
         cargo nextest run -p buzz-agent --lib
+        cargo nextest run -p buzz-workflow --lib
+        cargo nextest run -p st8-contribution-protocol -p st8-bsv-provenance -p st8-contribution-engine -p st8-compute-protocol -p st8-compute-engine -p st8-compute-runtime -p st8-anchor-worker
     else
         ./scripts/run-tests.sh unit
     fi
@@ -455,8 +458,16 @@ admin-check: fmt-check
     cargo check -p buzz-relay --all-targets
     cargo test -p buzz-relay api::admin
     cargo test -p buzz-relay router::tests
+    just admin-web-check
+    just admin-web-test
+
+# Check the admin frontend without relay infrastructure
+admin-web-check:
     pnpm -C admin-web check
-    pnpm -C admin-web exec playwright test
+
+# Build and exercise the admin frontend against its mocked API
+admin-web-test:
+    pnpm -C admin-web test:e2e
 
 # Start the relay server in release mode
 relay-release: _ensure-migrations

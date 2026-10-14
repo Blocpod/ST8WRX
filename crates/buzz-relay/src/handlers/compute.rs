@@ -6,7 +6,7 @@ use anyhow::{anyhow, Context};
 use buzz_core::kind::{
     KIND_PROJECT, KIND_ST8_COMPUTE_CAPABILITY, KIND_ST8_COMPUTE_DISPUTE, KIND_ST8_COMPUTE_JOB,
     KIND_ST8_COMPUTE_LEDGER_ENTRY, KIND_ST8_COMPUTE_PRICING, KIND_ST8_COMPUTE_RECEIPT,
-    KIND_ST8_COMPUTE_SETTLEMENT, KIND_ST8_COMPUTE_SETTLEMENT_ENTRY,
+    KIND_ST8_COMPUTE_RESOLUTION, KIND_ST8_COMPUTE_SETTLEMENT, KIND_ST8_COMPUTE_SETTLEMENT_ENTRY,
 };
 use buzz_core::tenant::TenantContext;
 use buzz_db::compute::{
@@ -22,6 +22,14 @@ use st8_compute_protocol::{ComputeJob, ComputeSettlement, ExecutionStatus, Prici
 use st8_contribution_engine::BuzzProjectContext;
 
 use crate::state::AppState;
+
+mod replay;
+mod resolution;
+pub use resolution::handle_resolution;
+#[cfg(test)]
+mod tests;
+
+pub(crate) use replay::replay_event;
 
 /// Validates the stable transport-visible envelope before event storage.
 pub fn validate_envelope(event: &Event) -> Result<(), String> {
@@ -89,7 +97,7 @@ pub fn validate_envelope(event: &Event) -> Result<(), String> {
             }
         }
         // Stateful signer/receipt-set checks run after storage.
-        KIND_ST8_COMPUTE_DISPUTE | KIND_ST8_COMPUTE_SETTLEMENT => {
+        KIND_ST8_COMPUTE_DISPUTE | KIND_ST8_COMPUTE_SETTLEMENT | KIND_ST8_COMPUTE_RESOLUTION => {
             if single_tag(event, "a").is_none() || single_tag(event, "d").is_none() {
                 return Err(
                     "compute dispute/settlement is missing project or object identity".into(),
@@ -187,6 +195,7 @@ pub async fn handle_receipt(
     let projection = serde_json::json!({
         "version": 1,
         "receipt_id": hex::encode(receipt_id),
+        "receipt_event_id": event.id.to_hex(),
         "job_id": hex::encode(receipt.job_id),
         "project_id": receipt.project,
         "requester": receipt.requester,
@@ -303,6 +312,22 @@ pub async fn handle_settlement(
         .db
         .acquire_compute_project_lock(tenant.community(), &requested.project)
         .await?;
+    // A committed settlement has consumed its receipts; never derive it again
+    // from the remaining unsettled set or reset its worker state.
+    if let Some(stored) = state
+        .db
+        .get_compute_settlement_event(tenant.community(), &requested.id()?)
+        .await?
+    {
+        let stored: Event = serde_json::from_value(stored)?;
+        if stored != *event {
+            return Err(anyhow!(
+                "compute settlement already exists with different signed material"
+            ));
+        }
+        ledger_lock.release_now().await?;
+        return Ok(());
+    }
     let start_ms = requested
         .period_start
         .checked_mul(1_000)
@@ -326,7 +351,12 @@ pub async fn handle_settlement(
         .collect::<Result<Vec<VerifiedComputeReceipt>, _>>()?;
     let disputed_receipt_ids = records
         .iter()
-        .filter(|record| record.dispute_state == "disputed")
+        .filter(|record| {
+            matches!(
+                record.dispute_state.as_str(),
+                "disputed" | "resolved_upheld"
+            )
+        })
         .map(|record| {
             <[u8; 32]>::try_from(record.receipt_id.as_slice())
                 .map_err(|_| anyhow!("stored compute receipt ID is malformed"))
@@ -417,19 +447,22 @@ async fn emit_receipt_projection(
     let provider = hex::encode(&record.provider_pubkey);
     let content = record.ledger_projection.to_string();
     let relay_pubkey = state.relay_keypair.public_key().to_bytes();
-    if latest_addressable(
+    let previous = latest_addressable(
         tenant,
         state,
         KIND_ST8_COMPUTE_LEDGER_ENTRY,
         &relay_pubkey,
         &receipt,
     )
-    .await?
-    .is_some_and(|event| event.content == content)
+    .await?;
+    if previous
+        .as_ref()
+        .is_some_and(|event| event.content == content)
     {
         return Ok(false);
     }
     let event = EventBuilder::new(Kind::Custom(KIND_ST8_COMPUTE_LEDGER_ENTRY as u16), content)
+        .custom_created_at(projection_timestamp(previous.as_ref())?)
         .tags([
             Tag::parse(["d", receipt.as_str()])?,
             Tag::parse(["a", record.project_id.as_str()])?,
@@ -454,15 +487,17 @@ async fn emit_settlement_projection(
     let root = hex::encode(receipt_root);
     let content = snapshot.to_string();
     let relay_pubkey = state.relay_keypair.public_key().to_bytes();
-    if latest_addressable(
+    let previous = latest_addressable(
         tenant,
         state,
         KIND_ST8_COMPUTE_SETTLEMENT_ENTRY,
         &relay_pubkey,
         &settlement,
     )
-    .await?
-    .is_some_and(|event| event.content == content)
+    .await?;
+    if previous
+        .as_ref()
+        .is_some_and(|event| event.content == content)
     {
         return Ok(false);
     }
@@ -470,6 +505,7 @@ async fn emit_settlement_projection(
         Kind::Custom(KIND_ST8_COMPUTE_SETTLEMENT_ENTRY as u16),
         content,
     )
+    .custom_created_at(projection_timestamp(previous.as_ref())?)
     .tags([
         Tag::parse(["d", settlement.as_str()])?,
         Tag::parse(["a", project])?,
@@ -480,7 +516,17 @@ async fn emit_settlement_projection(
     persist_relay_projection(tenant, state, &event, KIND_ST8_COMPUTE_SETTLEMENT_ENTRY).await
 }
 
-/// Repairs relay-signed receipt/settlement query projections after restarts or worker updates.
+fn projection_timestamp(previous: Option<&Event>) -> anyhow::Result<nostr::Timestamp> {
+    let now = nostr::Timestamp::now().as_secs();
+    // Same-second updates must win NIP-33 replacement independently of event-ID ordering.
+    let next = previous
+        .map(|event| event.created_at.as_secs().checked_add(1))
+        .unwrap_or(Some(now))
+        .context("compute projection timestamp overflow")?;
+    Ok(nostr::Timestamp::from(now.max(next)))
+}
+
+/// Replays retained compute inputs and repairs their relay-signed query projections.
 pub async fn reconcile_ledger_events(state: &Arc<AppState>) -> anyhow::Result<usize> {
     const PAGE_SIZE: i64 = 500;
     let communities = state.db.usage_community_hosts().await?;
@@ -488,6 +534,7 @@ pub async fn reconcile_ledger_events(state: &Arc<AppState>) -> anyhow::Result<us
     for community in communities {
         let community_id = buzz_core::CommunityId::from_uuid(community.id);
         let tenant = TenantContext::resolved(community_id, community.host);
+        replay::replay_inputs(&tenant, state).await?;
         let mut offset = 0i64;
         loop {
             let records = state

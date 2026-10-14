@@ -1144,6 +1144,10 @@ dependencies = [
  "serde_yaml",
  "sha2 0.11.0",
  "sherpa-onnx",
+ "st8-compute-engine",
+ "st8-compute-protocol",
+ "st8-contribution-engine",
+ "st8-contribution-protocol",
  "strip-ansi-escapes",
  "tar",
  "tauri",
@@ -9946,6 +9950,67 @@ dependencies = [
  "http-body",
  "http-body-util",
  "pin-project-lite",
+]
+
+[[package]]
+name = "st8-bsv-provenance"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "sha2 0.11.0",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "st8-compute-engine"
+version = "0.1.0"
+dependencies = [
+ "buzz-core",
+ "ed25519-dalek",
+ "hex",
+ "nostr 0.44.7",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "st8-bsv-provenance",
+ "st8-compute-protocol",
+ "st8-contribution-engine",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "st8-compute-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "sha2 0.11.0",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "st8-contribution-engine"
+version = "0.1.0"
+dependencies = [
+ "buzz-core",
+ "buzz-sdk",
+ "clap",
+ "hex",
+ "nostr 0.44.7",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "st8-bsv-provenance",
+ "st8-contribution-protocol",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "st8-contribution-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "sha2 0.11.0",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

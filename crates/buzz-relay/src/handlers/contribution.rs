@@ -25,6 +25,9 @@ use st8_contribution_protocol::DecisionStatus;
 
 use crate::state::AppState;
 
+mod recovery;
+pub use recovery::reconcile_stored_approvals;
+
 /// Validates the stable, transport-visible envelope before event storage.
 pub fn validate_envelope(event: &Event) -> Result<(), String> {
     let kind = u32::from(event.kind.as_u16());
@@ -136,7 +139,15 @@ pub async fn handle_approval(
     let decision_proposal =
         GovernanceDecisionProposal::from_event(&claim_context.record, &policy_context, &proposal)?;
 
-    let approval_events = approvals_for_proposal(tenant, state, &proposal).await?;
+    let approval_events = recovery::approvals_for_proposal(
+        tenant,
+        state,
+        &proposal,
+        &policy_context,
+        &claim_context,
+        &decision_proposal.intent,
+    )
+    .await?;
     let decision = match policy_context.policy.decide(
         &claim_context.record,
         &decision_proposal.intent,
@@ -235,7 +246,7 @@ pub async fn handle_approval(
             Some(NewProjectSnapshot {
                 snapshot_id: snapshot.id()?.to_vec(),
                 merkle_root: batch.root().to_vec(),
-                leaf_count: i32::try_from(batch.len())?,
+                leaf_count: i64::try_from(batch.len())?,
                 snapshot: serde_json::to_value(snapshot)?,
                 prepared_anchor: serde_json::to_value(prepared)?,
             })
@@ -324,76 +335,6 @@ pub async fn handle_approval(
     }
     ledger_lock.release_now().await?;
     Ok(())
-}
-
-/// Replays stored governance approvals whose immutable contribution decision
-/// has not yet been projected. This repairs a crash or transient database
-/// failure after the approval event itself was durably accepted.
-pub async fn reconcile_stored_approvals(state: &Arc<AppState>) -> anyhow::Result<usize> {
-    const PAGE_SIZE: i64 = 1_000;
-    let communities = state.db.usage_community_hosts().await?;
-    let mut projected = 0usize;
-    for community in communities {
-        let community_id = buzz_core::CommunityId::from_uuid(community.id);
-        let tenant = TenantContext::resolved(community_id, community.host);
-        let mut offset = 0i64;
-        loop {
-            let mut query = EventQuery::for_community(community_id);
-            query.kinds = Some(vec![KIND_ST8_GOVERNANCE_APPROVAL as i32]);
-            query.global_only = true;
-            query.limit = Some(PAGE_SIZE);
-            query.offset = Some(offset);
-            let approvals = state.db.query_events(&query).await?;
-            let page_len = approvals.len();
-            if page_len == 0 {
-                break;
-            }
-            for stored in approvals {
-                let Some(contribution_hex) = single_tag(&stored.event, "st8-contribution") else {
-                    tracing::warn!(event_id = %stored.event.id, "stored ST8 approval lacks contribution binding");
-                    continue;
-                };
-                let contribution_id = match hex::decode(contribution_hex) {
-                    Ok(id) if id.len() == 32 => id,
-                    _ => {
-                        tracing::warn!(event_id = %stored.event.id, "stored ST8 approval has invalid contribution binding");
-                        continue;
-                    }
-                };
-                if state
-                    .db
-                    .contribution_exists(community_id, &contribution_id)
-                    .await?
-                {
-                    continue;
-                }
-                match handle_approval(&tenant, &stored.event, state).await {
-                    Ok(()) => {
-                        if state
-                            .db
-                            .contribution_exists(community_id, &contribution_id)
-                            .await?
-                        {
-                            projected += 1;
-                        }
-                    }
-                    Err(error) => tracing::warn!(
-                        event_id = %stored.event.id,
-                        %community_id,
-                        %error,
-                        "stored ST8 approval reconciliation failed"
-                    ),
-                }
-            }
-            if page_len < usize::try_from(PAGE_SIZE)? {
-                break;
-            }
-            offset = offset
-                .checked_add(PAGE_SIZE)
-                .context("ST8 approval reconciliation offset overflow")?;
-        }
-    }
-    Ok(projected)
 }
 
 /// Repairs the relay-signed query projection after an anchor worker changes
@@ -606,25 +547,6 @@ async fn latest_addressable(
         .into_iter()
         .next()
         .map(|stored| stored.event))
-}
-
-async fn approvals_for_proposal(
-    tenant: &TenantContext,
-    state: &AppState,
-    proposal: &Event,
-) -> anyhow::Result<Vec<Event>> {
-    let mut query = EventQuery::for_community(tenant.community());
-    query.kinds = Some(vec![KIND_ST8_GOVERNANCE_APPROVAL as i32]);
-    query.e_tags = Some(vec![proposal.id.to_hex()]);
-    query.global_only = true;
-    query.limit = Some(256);
-    Ok(state
-        .db
-        .query_events(&query)
-        .await?
-        .into_iter()
-        .map(|stored| stored.event)
-        .collect())
 }
 
 fn parse_project_coordinate(project: &str) -> anyhow::Result<(Vec<u8>, String)> {

@@ -25,7 +25,7 @@
 - Merkle root: `bb9eef492e23269efea4ead5ac4d3f2f759a2b82a87dad2100cee15483080af8`
 - Testnet txid: `732609ae6ea8df7883a2229a5af9ab8b32316e7101c108a93c962668aa4538b9`
 - Mined block: `1754486` / `0000000000c046761bce820232597af48e915d011a3e3cd4bf6bd78b06f00224`
-- Verification state: `mined_spv_verified`
+- Historical receipt label: `mined_spv_verified`; current offline result: `header_inclusion_verified`
 - Public receipt: [`milestone-1/live-receipt.json`](milestone-1/live-receipt.json)
 
 The wallet charged only the 142-satoshi network fee. The commitment output is
@@ -48,11 +48,14 @@ target/debug/st8-anchor-worker verify \
 Expected result:
 
 ```text
-verified txid=732609ae6ea8df7883a2229a5af9ab8b32316e7101c108a93c962668aa4538b9 state=mined_spv_verified
+verified txid=732609ae6ea8df7883a2229a5af9ab8b32316e7101c108a93c962668aa4538b9 state=header_inclusion_verified
 ```
 
 The verifier performs no wallet call and does not trust the process that built
 the receipt. It recomputes Nostr IDs/signatures, project scope, governance
 threshold, CU award, snapshots, Merkle inclusion, BSV txid, output commitment,
 Atomic BEEF subject, exact network-returned bytes, mined BEEF/BUMP root,
-block-header hash, height, and confirmation.
+block-header hash and proof of work. Receipt-supplied height and confirmation
+fields are consistency checks, not independently authenticated chain facts.
+See [verification trust boundaries](PROOF-VERIFICATION.md) for the optional
+independently trusted block-hash input and remaining chain/reorg assumptions.

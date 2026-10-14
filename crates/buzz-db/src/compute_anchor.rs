@@ -52,6 +52,7 @@ impl Db {
                FROM st8_compute_anchor_jobs
               WHERE ((status IN ('queued','failed','broadcast') AND next_attempt_at <= NOW())
                      OR (status='leased' AND lease_until < NOW()))
+                AND (wallet_requested_at IS NULL OR txid IS NOT NULL)
               ORDER BY next_attempt_at, created_at
               FOR UPDATE SKIP LOCKED LIMIT 1",
         )

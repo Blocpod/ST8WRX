@@ -14,8 +14,9 @@ use thiserror::Error;
 const LEAF_DOMAIN: &[u8] = b"ST8WRX\0PROVENANCE_LEAF\0V1";
 const NODE_DOMAIN: &[u8] = b"ST8WRX\0MERKLE_NODE\0V1";
 const ANCHOR_DOMAIN: &[u8] = b"ST8WRX\0BSV_ANCHOR\0V1";
-/// Maximum commitments in one deterministic batch.
-pub const MAX_BATCH_SIZE: usize = 4_096;
+/// Maximum count representable by the V1 payload and proof format.
+/// Operational request/memory limits belong at the caller boundary, not in project history.
+pub const MAX_BATCH_SIZE: usize = u32::MAX as usize;
 const MAX_TX_ITEMS: u64 = 100_000;
 const MAX_SCRIPT_BYTES: u64 = 10_000_000;
 
@@ -239,9 +240,6 @@ impl MerkleProof {
         }
         let mut count =
             usize::try_from(self.leaf_count).map_err(|_| ProvenanceError::MalformedProof)?;
-        if count > MAX_BATCH_SIZE {
-            return Err(ProvenanceError::MalformedProof);
-        }
         let mut index =
             usize::try_from(self.leaf_index).map_err(|_| ProvenanceError::MalformedProof)?;
         let expected_depth = proof_depth(count);
@@ -723,18 +721,35 @@ mod tests {
     }
 
     #[test]
-    fn batch_size_limit_is_enforced() {
-        let items = (0..=MAX_BATCH_SIZE)
-            .map(|index| {
-                let mut item = commitment("project:a", 1);
-                item.object_id[..8].copy_from_slice(&(index as u64).to_be_bytes());
-                item
-            })
-            .collect();
-        assert!(matches!(
-            MerkleBatch::new(items),
-            Err(ProvenanceError::BatchTooLarge { .. })
-        ));
+    fn history_crosses_old_batch_limit_without_changing_proof_format() {
+        for count in [4_096, 4_097, 8_193] {
+            let items = (0..count)
+                .map(|index| {
+                    let mut item = commitment("project:a", 1);
+                    item.object_id[..8].copy_from_slice(&(index as u64).to_be_bytes());
+                    item
+                })
+                .collect();
+            let batch = MerkleBatch::new(items).expect("large batch");
+            for item in [
+                batch.commitments().first().unwrap(),
+                batch.commitments().last().unwrap(),
+            ] {
+                let mut proof = batch.proof_for(item).expect("large proof");
+                proof
+                    .verify(item, batch.root())
+                    .expect("verify large proof");
+                assert_eq!(proof.leaf_count as usize, count);
+                proof.siblings.push([0; 32]);
+                assert_eq!(
+                    proof.verify(item, batch.root()),
+                    Err(ProvenanceError::MalformedProof)
+                );
+            }
+            let payload =
+                AnchorPayload::new(BsvNetwork::Testnet, "project:a", &batch, [0; 32]).unwrap();
+            assert_eq!(payload.leaf_count as usize, count);
+        }
     }
 
     #[test]

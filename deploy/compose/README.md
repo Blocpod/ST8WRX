@@ -46,6 +46,37 @@ keypair.
 
 Run `./run.sh backup-hint` for the backup checklist.
 
+## ST8WRX testnet anchor workers
+
+The image includes `st8-anchor-worker`. Set `ST8_WALLET_URL` in `.env` to an
+external **testnet** BRC-100 wallet endpoint reachable from the containers, then
+start both durable queues with:
+
+```bash
+COMPOSE_PROFILES=st8-anchor ./run.sh start
+```
+
+This explicitly enables transaction signing and broadcasting through that wallet.
+The contribution and compute queues run independently so waiting for one mined
+transaction does not block the other. Workers require mined evidence, poll every
+`ST8_ANCHOR_POLL_SECONDS` (default 15), and use persisted database leases,
+transactions, receipts, and retry state across restarts. A terminated attempt
+with saved transaction bytes can resume after its lease expires. An ambiguous
+wallet call without saved bytes is fenced off until the operator imports the
+original transaction; see [anchor recovery](../../docs/st8wrx/ANCHOR-RECOVERY.md).
+Stop old workers before applying migration 0037 and start only updated workers
+afterward. Logs go to container stdout/stderr; use
+`docker compose logs contribution-anchor compute-anchor` to inspect failures.
+The relay must finish migrations and become healthy before either worker starts.
+
+These workers anchor ledger commitments; they do not pay compute providers.
+The bundled worker includes the BSV SDK under the Open BSV license; the image
+includes `LICENSE`, `NOTICE`, and that license under `/usr/share/doc/st8wrx`.
+See [proof verification](../../docs/st8wrx/PROOF-VERIFICATION.md) for the trust
+boundary of saved receipts. Production image publishing remains pending the
+[release checklist](../../RELEASING.md); build an image from this checkout and
+set `BUZZ_IMAGE` to that image when validating locally.
+
 ## Validation
 
 Before sharing an install link publicly, verify a fresh install with:

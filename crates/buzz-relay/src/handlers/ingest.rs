@@ -32,13 +32,14 @@ use buzz_core::kind::{
     KIND_PRESENCE_UPDATE, KIND_PRIVATE_MANAGED_AGENT, KIND_PRODUCT_FEEDBACK, KIND_PROFILE,
     KIND_PROJECT, KIND_REACTION, KIND_READ_STATE, KIND_REPORT, KIND_ST8_COMPUTE_CAPABILITY,
     KIND_ST8_COMPUTE_DISPUTE, KIND_ST8_COMPUTE_JOB, KIND_ST8_COMPUTE_PRICING,
-    KIND_ST8_COMPUTE_RECEIPT, KIND_ST8_COMPUTE_SETTLEMENT, KIND_ST8_CONTRIBUTION_CLAIM,
-    KIND_ST8_DECISION_PROPOSAL, KIND_ST8_GOVERNANCE_APPROVAL, KIND_ST8_GOVERNANCE_POLICY,
-    KIND_STREAM_MESSAGE, KIND_STREAM_MESSAGE_BOOKMARKED, KIND_STREAM_MESSAGE_DIFF,
-    KIND_STREAM_MESSAGE_EDIT, KIND_STREAM_MESSAGE_PINNED, KIND_STREAM_MESSAGE_SCHEDULED,
-    KIND_STREAM_MESSAGE_V2, KIND_STREAM_REMINDER, KIND_TEAM, KIND_TEAM_CATALOG, KIND_TEXT_NOTE,
-    KIND_USER_STATUS, KIND_WORKFLOW_DEF, KIND_WORKFLOW_TRIGGER, RELAY_ADMIN_ADD_MEMBER,
-    RELAY_ADMIN_CHANGE_ROLE, RELAY_ADMIN_REMOVE_MEMBER, RELAY_ADMIN_SET_WORKSPACE_PROFILE,
+    KIND_ST8_COMPUTE_RECEIPT, KIND_ST8_COMPUTE_RESOLUTION, KIND_ST8_COMPUTE_SETTLEMENT,
+    KIND_ST8_CONTRIBUTION_CLAIM, KIND_ST8_DECISION_PROPOSAL, KIND_ST8_GOVERNANCE_APPROVAL,
+    KIND_ST8_GOVERNANCE_POLICY, KIND_STREAM_MESSAGE, KIND_STREAM_MESSAGE_BOOKMARKED,
+    KIND_STREAM_MESSAGE_DIFF, KIND_STREAM_MESSAGE_EDIT, KIND_STREAM_MESSAGE_PINNED,
+    KIND_STREAM_MESSAGE_SCHEDULED, KIND_STREAM_MESSAGE_V2, KIND_STREAM_REMINDER, KIND_TEAM,
+    KIND_TEAM_CATALOG, KIND_TEXT_NOTE, KIND_USER_STATUS, KIND_WORKFLOW_DEF, KIND_WORKFLOW_TRIGGER,
+    RELAY_ADMIN_ADD_MEMBER, RELAY_ADMIN_CHANGE_ROLE, RELAY_ADMIN_REMOVE_MEMBER,
+    RELAY_ADMIN_SET_WORKSPACE_PROFILE,
 };
 use buzz_core::tenant::TenantContext;
 use buzz_core::verification::verify_event;
@@ -551,6 +552,7 @@ fn required_scope_for_kind(kind: u32, event: &Event) -> Result<Scope, &'static s
         | KIND_ST8_COMPUTE_JOB
         | KIND_ST8_COMPUTE_RECEIPT
         | KIND_ST8_COMPUTE_DISPUTE
+        | KIND_ST8_COMPUTE_RESOLUTION
         | KIND_ST8_COMPUTE_SETTLEMENT
         | KIND_JOB_REQUEST
         | KIND_JOB_ACCEPTED
@@ -700,6 +702,7 @@ pub(crate) fn is_global_only_kind(kind: u32) -> bool {
             | KIND_ST8_COMPUTE_JOB
             | KIND_ST8_COMPUTE_RECEIPT
             | KIND_ST8_COMPUTE_DISPUTE
+        | KIND_ST8_COMPUTE_RESOLUTION
             | KIND_ST8_COMPUTE_SETTLEMENT
             // Community moderation commands (9040–9044): community-global
             // direct commands, same model as the NIP-43 9030-series. A stray
@@ -2835,6 +2838,7 @@ async fn ingest_event_inner(
             | KIND_ST8_COMPUTE_JOB
             | KIND_ST8_COMPUTE_RECEIPT
             | KIND_ST8_COMPUTE_DISPUTE
+            | KIND_ST8_COMPUTE_RESOLUTION
             | KIND_ST8_COMPUTE_SETTLEMENT
     ) {
         crate::handlers::compute::validate_envelope(&event)
@@ -3244,6 +3248,20 @@ async fn ingest_event_inner(
     };
 
     if !was_inserted {
+        // Compute inputs are durable even if projection failed after storage.
+        // Retrying must retry accounting without re-dispatching the input event.
+        if let Err(error) = crate::handlers::compute::replay_event(tenant, &event, state).await {
+            error!(event_id = %event_id_hex, kind = kind_u32, %error,
+                "Compute projection retry failed; retained for reconciliation");
+        }
+        if kind_u32 == KIND_ST8_GOVERNANCE_APPROVAL {
+            if let Err(error) =
+                crate::handlers::contribution::handle_approval(tenant, &event, state).await
+            {
+                error!(event_id = %event_id_hex, %error,
+                    "Contribution projection retry failed; retained for reconciliation");
+            }
+        }
         return Ok(IngestResult {
             event_id: event_id_hex,
             accepted: true,

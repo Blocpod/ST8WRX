@@ -17,6 +17,23 @@ use crate::ComputeCmd;
 /// Dispatches a project-scoped compute ledger query.
 pub async fn dispatch(command: ComputeCmd, client: &BuzzClient) -> Result<(), CliError> {
     match command {
+        ComputeCmd::Resolve {
+            project,
+            receipt_id,
+            dispute_event_id,
+            outcome,
+            reason,
+        } => {
+            resolve(
+                client,
+                project,
+                receipt_id,
+                dispute_event_id,
+                outcome,
+                reason,
+            )
+            .await
+        }
         ComputeCmd::Nodes { project, limit } => nodes(client, &project, limit).await,
         ComputeCmd::Jobs {
             project,
@@ -46,6 +63,52 @@ pub async fn dispatch(command: ComputeCmd, client: &BuzzClient) -> Result<(), Cl
         ComputeCmd::Settlements { project, limit } => settlements(client, &project, limit).await,
         ComputeCmd::ShowReceipt { receipt_id } => show_receipt(client, &receipt_id).await,
     }
+}
+
+async fn resolve(
+    client: &BuzzClient,
+    project: String,
+    receipt_id: String,
+    dispute_event_id: String,
+    outcome: String,
+    reason: String,
+) -> Result<(), CliError> {
+    validate_project(&project)?;
+    if project.split(':').nth(1) != Some(client.keys().public_key().to_hex().as_str()) {
+        return Err(CliError::Auth(
+            "only the project owner can resolve compute disputes".into(),
+        ));
+    }
+    let digest = |value: &str| -> Result<[u8; 32], CliError> {
+        crate::validate::validate_hex64(value)?;
+        hex::decode(value)
+            .map_err(|error| CliError::Usage(error.to_string()))?
+            .try_into()
+            .map_err(|_| CliError::Usage("expected 32-byte event or receipt ID".into()))
+    };
+    let resolution = st8_compute_engine::ComputeResolution {
+        project,
+        receipt_id: digest(&receipt_id)?,
+        dispute_event_id: digest(&dispute_event_id)?,
+        outcome: serde_json::from_value(Value::String(outcome))
+            .map_err(|error| CliError::Usage(error.to_string()))?,
+        resolved_at: chrono::Utc::now().timestamp(),
+        reason,
+    };
+    let event = resolution
+        .event_builder()
+        .map_err(|error| CliError::Usage(error.to_string()))?
+        .sign_with_keys(client.keys())
+        .map_err(|error| CliError::Key(error.to_string()))?;
+    let raw = client.submit_event(event).await?;
+    println!(
+        "{}",
+        crate::commands::parse_write_response(
+            &raw,
+            "compute resolution was rejected by the relay"
+        )?
+    );
+    Ok(())
 }
 
 async fn nodes(client: &BuzzClient, project: &str, limit: u32) -> Result<(), CliError> {
@@ -254,6 +317,7 @@ struct ProviderBalance {
     queued_sats: u64,
     confirmed_sats: u64,
     total_sats: u64,
+    voided_sats: u64,
 }
 
 async fn balances(
@@ -299,6 +363,10 @@ fn derive_balances(events: &[Value]) -> Result<Vec<ProviderBalance>, CliError> {
                 ..ProviderBalance::default()
             });
         balance.receipt_count = checked_add(balance.receipt_count, 1)?;
+        if content.get("dispute_state").and_then(Value::as_str) == Some("resolved_upheld") {
+            balance.voided_sats = checked_add(balance.voided_sats, cost)?;
+            continue;
+        }
         balance.total_sats = checked_add(balance.total_sats, cost)?;
         let disputed = content.get("dispute_state").and_then(Value::as_str) == Some("disputed");
         let settlement = content.get("settlement_state").and_then(Value::as_str);
@@ -531,8 +599,25 @@ mod tests {
                 queued_sats: 5,
                 confirmed_sats: 7,
                 total_sats: 17,
+                voided_sats: 0,
             }]
         );
+    }
+
+    #[test]
+    fn resolved_void_charges_never_count_as_provider_earnings() {
+        let event = |state: &str| {
+            serde_json::json!({"content": serde_json::json!({
+            "provider": "nostr:provider", "node_owner_id": "node", "cost_sats": 7,
+            "dispute_state": state, "settlement_id": null,
+        }).to_string()})
+        };
+        let balances =
+            derive_balances(&[event("resolved_upheld"), event("resolved_rejected")]).unwrap();
+        assert_eq!(balances[0].voided_sats, 7);
+        assert_eq!(balances[0].pending_sats, 7);
+        assert_eq!(balances[0].total_sats, 7);
+        assert_eq!(balances[0].receipt_count, 2);
     }
 
     #[test]

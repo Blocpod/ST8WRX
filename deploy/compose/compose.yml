@@ -48,6 +48,33 @@ services:
     networks:
       - buzz-net
 
+  contribution-anchor:
+    image: ${BUZZ_IMAGE:-ghcr.io/blocpod/st8wrx:main}
+    profiles: [st8-anchor]
+    entrypoint: ["/usr/local/bin/run-anchor-worker", "run-once"]
+    environment: &anchor-environment
+      DATABASE_URL: postgres://${POSTGRES_USER:-buzz}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-buzz}
+      ST8_WALLET_URL: ${ST8_WALLET_URL:-}
+      ST8_ANCHOR_POLL_SECONDS: ${ST8_ANCHOR_POLL_SECONDS:-15}
+    depends_on:
+      relay:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    networks: [buzz-net]
+
+  compute-anchor:
+    image: ${BUZZ_IMAGE:-ghcr.io/blocpod/st8wrx:main}
+    profiles: [st8-anchor]
+    entrypoint: ["/usr/local/bin/run-anchor-worker", "run-compute-once"]
+    environment: *anchor-environment
+    depends_on:
+      relay:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    networks: [buzz-net]
+
   postgres:
     image: postgres:17-alpine
     environment:

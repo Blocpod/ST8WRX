@@ -3,6 +3,7 @@ import type * as React from "react";
 
 import { AppTopChromePortal } from "@/app/AppTopChromePortal";
 import type { Project, Repository } from "@/features/projects/hooks";
+import { ProjectEconomyDialog } from "./ProjectEconomyDialog";
 
 export type ProjectDetailWorkItemCrumb = {
   category: string;
@@ -116,6 +117,10 @@ export function ProjectDetailChrome({
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
           {actions}
+          <ProjectEconomyDialog
+            key={project.projectAddress}
+            project={project}
+          />
         </div>
       </div>
     </AppTopChromePortal>

@@ -18,7 +18,7 @@ use tracing::warn;
 use uuid::Uuid;
 
 use buzz_core::kind::*;
-use buzz_core::tenant::{CommunityId, TenantContext};
+use buzz_core::tenant::TenantContext;
 use buzz_datastore_tracing::datastore_span;
 use buzz_db::workflow::{ApprovalStatus, RunStatus};
 use buzz_db::DbError;
@@ -97,7 +97,8 @@ enum PersistResult {
 /// not strictly atomic: if a mutation succeeds but commit fails, the mutation
 /// persists without the event record. On retry, the event INSERT succeeds
 /// (no conflict), and the mutation re-executes — which is safe for idempotent
-/// operations (open_dm, hide_dm, update_approval, upsert_workflow).
+/// operations (open_dm, hide_dm, upsert_workflow). Approval decisions use this
+/// same transaction and commit atomically with their signed command.
 #[datastore_span(name = "persist_command_event", system = "postgresql")]
 async fn persist_command_event(
     db: &buzz_db::Db,
@@ -1131,9 +1132,32 @@ async fn handle_approval_grant(
 
     // 4. Validate caller is authorized approver
     check_approver_spec(&approval.approver_spec, &self_hex)?;
+    let workflow = state
+        .db
+        .get_workflow(tenant.community(), approval.workflow_id)
+        .await
+        .map_err(|_| IngestError::Rejected("invalid: workflow not found".into()))?;
+    let channel = workflow
+        .channel_id
+        .ok_or_else(|| IngestError::Rejected("invalid: approval has no channel".into()))?;
+    if !state
+        .db
+        .is_member(tenant.community(), channel, &self_bytes)
+        .await
+        .map_err(|e| IngestError::Internal(e.to_string()))?
+    {
+        return Err(IngestError::Rejected(
+            "forbidden: approver must be a workflow channel member".into(),
+        ));
+    }
 
     // Persist the command event — returns open transaction
-    let tx = match persist_command_event(&state.db, tenant, event, None).await? {
+    if extract_h_tag(event).is_some_and(|value| Uuid::parse_str(&value).ok() != Some(channel)) {
+        return Err(IngestError::Rejected(
+            "invalid: approval channel does not match workflow".into(),
+        ));
+    }
+    let mut tx = match persist_command_event(&state.db, tenant, event, Some(channel)).await? {
         PersistResult::Duplicate => {
             return Ok(IngestResult {
                 event_id: event.id.to_hex(),
@@ -1151,17 +1175,16 @@ async fn handle_approval_grant(
         Some(event.content.as_str())
     };
 
-    let updated = state
-        .db
-        .update_approval_by_stored_hash(
-            tenant.community(),
-            &token_hash,
-            ApprovalStatus::Granted,
-            Some(&self_bytes),
-            note,
-        )
-        .await
-        .map_err(|e| IngestError::Internal(format!("error: db update_approval: {e}")))?;
+    let updated = buzz_db::workflow::decide_approval_in_transaction(
+        &mut tx,
+        tenant.community(),
+        &token_hash,
+        true,
+        &self_bytes,
+        note,
+    )
+    .await
+    .map_err(|e| IngestError::Internal(format!("error: db update_approval: {e}")))?;
 
     if !updated {
         return Err(IngestError::Rejected(
@@ -1174,17 +1197,14 @@ async fn handle_approval_grant(
         .await
         .map_err(|e| IngestError::Internal(format!("error: commit transaction: {e}")))?;
 
-    // 6. Resume workflow execution (post-commit, async)
+    // Durable approval state is also reconciled at startup and every scheduler tick.
     let community_id = tenant.community();
     let run_id = approval.run_id;
-    let workflow_id = approval.workflow_id;
-    let resume_index = approval.step_index as usize + 1;
     let engine = Arc::clone(&state.workflow_engine);
-    let db = state.db.clone();
-
     tokio::spawn(async move {
-        resume_workflow_after_approval(engine, db, community_id, run_id, workflow_id, resume_index)
-            .await;
+        if let Err(error) = engine.reconcile_approval(community_id, run_id).await {
+            tracing::error!(%run_id, %error, "Approval resume deferred to recovery worker");
+        }
     });
 
     // 7. Return response
@@ -1242,9 +1262,32 @@ async fn handle_approval_deny(
 
     // 4. Validate caller is authorized approver
     check_approver_spec(&approval.approver_spec, &self_hex)?;
+    let workflow = state
+        .db
+        .get_workflow(tenant.community(), approval.workflow_id)
+        .await
+        .map_err(|_| IngestError::Rejected("invalid: workflow not found".into()))?;
+    let channel = workflow
+        .channel_id
+        .ok_or_else(|| IngestError::Rejected("invalid: approval has no channel".into()))?;
+    if !state
+        .db
+        .is_member(tenant.community(), channel, &self_bytes)
+        .await
+        .map_err(|e| IngestError::Internal(e.to_string()))?
+    {
+        return Err(IngestError::Rejected(
+            "forbidden: approver must be a workflow channel member".into(),
+        ));
+    }
 
     // Persist the command event — returns open transaction
-    let tx = match persist_command_event(&state.db, tenant, event, None).await? {
+    if extract_h_tag(event).is_some_and(|value| Uuid::parse_str(&value).ok() != Some(channel)) {
+        return Err(IngestError::Rejected(
+            "invalid: approval channel does not match workflow".into(),
+        ));
+    }
+    let mut tx = match persist_command_event(&state.db, tenant, event, Some(channel)).await? {
         PersistResult::Duplicate => {
             return Ok(IngestResult {
                 event_id: event.id.to_hex(),
@@ -1262,17 +1305,16 @@ async fn handle_approval_deny(
         Some(event.content.as_str())
     };
 
-    let updated = state
-        .db
-        .update_approval_by_stored_hash(
-            tenant.community(),
-            &token_hash,
-            ApprovalStatus::Denied,
-            Some(&self_bytes),
-            note,
-        )
-        .await
-        .map_err(|e| IngestError::Internal(format!("error: db update_approval: {e}")))?;
+    let updated = buzz_db::workflow::decide_approval_in_transaction(
+        &mut tx,
+        tenant.community(),
+        &token_hash,
+        false,
+        &self_bytes,
+        note,
+    )
+    .await
+    .map_err(|e| IngestError::Internal(format!("error: db update_approval: {e}")))?;
 
     if !updated {
         return Err(IngestError::Rejected(
@@ -1285,45 +1327,12 @@ async fn handle_approval_deny(
         .await
         .map_err(|e| IngestError::Internal(format!("error: commit transaction: {e}")))?;
 
-    // 6. Cancel the workflow run (post-commit, async)
-    let community_id = tenant.community();
     let run_id = approval.run_id;
-    let pubkey_hex = self_hex.clone();
-    let db = state.db.clone();
-
+    let community_id = tenant.community();
+    let engine = Arc::clone(&state.workflow_engine);
     tokio::spawn(async move {
-        let run = match db.get_workflow_run(community_id, run_id).await {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::error!("approval_deny: failed to fetch run {run_id}: {e}");
-                return;
-            }
-        };
-
-        if run.status != RunStatus::WaitingApproval {
-            tracing::warn!(
-                "approval_deny: run {run_id} has status '{}', expected 'waiting_approval'",
-                run.status
-            );
-            return;
-        }
-
-        let cancel_msg = format!("workflow cancelled: approval denied by {pubkey_hex}");
-        if let Err(e) = db
-            .update_workflow_run(
-                community_id,
-                run_id,
-                RunStatus::Cancelled,
-                run.current_step,
-                &run.execution_trace,
-                Some(buzz_db::workflow::WorkflowRunFailure {
-                    code: "approval_denied",
-                    message: &cancel_msg,
-                }),
-            )
-            .await
-        {
-            tracing::error!("approval_deny: failed to cancel run {run_id}: {e}");
+        if let Err(error) = engine.reconcile_approval(community_id, run_id).await {
+            tracing::error!(%run_id, %error, "Approval cancellation deferred to recovery worker");
         }
     });
 
@@ -1339,103 +1348,6 @@ async fn handle_approval_deny(
             })
         ),
     })
-}
-
-/// Resume a suspended workflow run after an approval gate has been granted.
-async fn resume_workflow_after_approval(
-    engine: Arc<buzz_workflow::WorkflowEngine>,
-    db: buzz_db::Db,
-    community_id: CommunityId,
-    run_id: Uuid,
-    workflow_id: Uuid,
-    resume_index: usize,
-) {
-    let run = match db.get_workflow_run(community_id, run_id).await {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::error!("resume_workflow: failed to fetch run {run_id}: {e}");
-            return;
-        }
-    };
-
-    // Guard: only resume runs that are actually waiting for approval
-    if run.status != RunStatus::WaitingApproval {
-        tracing::warn!(
-            "resume_workflow: run {run_id} has status '{}', expected 'waiting_approval'",
-            run.status
-        );
-        return;
-    }
-
-    let workflow = match db.get_workflow(community_id, workflow_id).await {
-        Ok(w) => w,
-        Err(e) => {
-            tracing::error!("resume_workflow: failed to fetch workflow {workflow_id}: {e}");
-            return;
-        }
-    };
-
-    let def: buzz_workflow::WorkflowDef = match serde_json::from_value(workflow.definition.clone())
-    {
-        Ok(d) => d,
-        Err(e) => {
-            tracing::error!("resume_workflow: failed to parse workflow definition: {e}");
-            if let Err(db_err) = db
-                .update_workflow_run(
-                    community_id,
-                    run_id,
-                    RunStatus::Failed,
-                    run.current_step,
-                    &run.execution_trace,
-                    Some(buzz_db::workflow::WorkflowRunFailure {
-                        code: "invalid_definition",
-                        message: &format!("definition parse error: {e}"),
-                    }),
-                )
-                .await
-            {
-                tracing::error!("resume_workflow: failed to mark run as failed: {db_err}");
-            }
-            return;
-        }
-    };
-
-    // Reconstruct step_outputs from execution trace for template resolution
-    let mut initial_outputs: std::collections::HashMap<String, serde_json::Value> =
-        std::collections::HashMap::new();
-    if let Some(trace_arr) = run.execution_trace.as_array() {
-        for entry in trace_arr {
-            if let (Some(step_id), Some(output)) = (
-                entry.get("step_id").and_then(|v| v.as_str()),
-                entry.get("output"),
-            ) {
-                initial_outputs.insert(step_id.to_string(), output.clone());
-            }
-        }
-    }
-
-    // Restore trigger context for {{trigger.*}} templates
-    let trigger_ctx: TriggerContext = run
-        .trigger_context
-        .as_ref()
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .unwrap_or_default();
-
-    // Execute remaining steps
-    let existing_trace = run.execution_trace.as_array().cloned();
-    let result = buzz_workflow::executor::execute_from_step(
-        &engine,
-        community_id,
-        run_id,
-        &def,
-        &trigger_ctx,
-        resume_index,
-        Some(initial_outputs),
-    )
-    .await;
-    engine
-        .finalize_run(community_id, run_id, result, existing_trace)
-        .await;
 }
 
 #[cfg(test)]

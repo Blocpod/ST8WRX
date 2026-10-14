@@ -17,6 +17,9 @@ use crate::{Db, DbError, Result};
 
 pub use crate::compute_anchor::ComputeAnchorJobRecord;
 
+mod resolution;
+pub use resolution::NewComputeResolution;
+
 /// One verified requester authorization ready for persistence.
 #[derive(Debug, Clone)]
 pub struct NewComputeJob {
@@ -532,6 +535,23 @@ impl Db {
         Ok(ComputeInsertOutcome::Inserted)
     }
 
+    /// Loads the exact signed input of an already committed settlement.
+    pub async fn get_compute_settlement_event(
+        &self,
+        community_id: CommunityId,
+        settlement_id: &[u8],
+    ) -> Result<Option<Value>> {
+        validate_digest("compute settlement ID", settlement_id)?;
+        Ok(sqlx::query_scalar(
+            "SELECT settlement_event FROM st8_compute_settlements
+             WHERE community_id=$1 AND settlement_id=$2",
+        )
+        .bind(community_id.as_uuid())
+        .bind(settlement_id)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
     /// Atomically consumes an exact undisputed receipt set and queues anchoring.
     pub async fn insert_compute_settlement(
         &self,
@@ -573,7 +593,7 @@ impl Db {
                         '{settlement_state}', '\"queued\"'::jsonb),
                     updated_at=NOW()
               WHERE community_id=$1 AND project_id=$2 AND receipt_id=ANY($3)
-                AND dispute_state='undisputed' AND settlement_id IS NULL",
+                AND dispute_state IN ('undisputed','resolved_rejected') AND settlement_id IS NULL",
         )
         .bind(community_id.as_uuid())
         .bind(&settlement.project_id)

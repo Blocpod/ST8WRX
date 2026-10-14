@@ -78,6 +78,8 @@ ensure_infra() {
 run_unit_tests() {
   section "Unit Tests (no infra required)"
 
+  run_test_step "anchor worker supervision" python3 scripts/test-anchor-worker.py
+
   run_test_step "buzz-core tests" \
     cargo test -p buzz-core --lib -- --nocapture
 
@@ -120,6 +122,14 @@ run_unit_tests() {
   # `just test-unit` — the two lists must stay in step.
   run_test_step "buzz-agent unit tests" \
     cargo test -p buzz-agent --lib -- --nocapture
+
+  run_test_step "workflow unit tests" \
+    cargo test -p buzz-workflow --lib -- --nocapture
+
+  run_test_step "ST8WRX protocol, accounting, runtime, and proof tests" \
+    cargo test -p st8-contribution-protocol -p st8-bsv-provenance \
+      -p st8-contribution-engine -p st8-compute-protocol -p st8-compute-engine \
+      -p st8-compute-runtime -p st8-anchor-worker -- --nocapture
 }
 
 # ---- DB / integration tests (infra required) --------------------------------

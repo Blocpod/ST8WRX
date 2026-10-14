@@ -12,7 +12,8 @@ use buzz_core::kind::{
     KIND_MEMBER_ADDED_NOTIFICATION, KIND_MEMBER_REMOVED_NOTIFICATION, KIND_NIP29_GROUP_ADMINS,
     KIND_NIP29_GROUP_MEMBERS, KIND_NIP29_GROUP_METADATA, KIND_NIP43_MEMBERSHIP_LIST, KIND_REACTION,
     KIND_ST8_COMPUTE_DISPUTE, KIND_ST8_COMPUTE_JOB, KIND_ST8_COMPUTE_RECEIPT,
-    KIND_ST8_COMPUTE_SETTLEMENT, KIND_ST8_GOVERNANCE_APPROVAL, KIND_THREAD_SUMMARY,
+    KIND_ST8_COMPUTE_RESOLUTION, KIND_ST8_COMPUTE_SETTLEMENT, KIND_ST8_GOVERNANCE_APPROVAL,
+    KIND_THREAD_SUMMARY,
 };
 use buzz_core::StoredEvent;
 use buzz_db::channel::{MemberRecord, MemberRole};
@@ -34,7 +35,7 @@ pub fn is_admin_kind(kind: u32) -> bool {
 /// handled in `ingest_event()` before storage so we can short-circuit on
 /// duplicates without storing the event at all.
 pub fn is_side_effect_kind(kind: u32) -> bool {
-    matches!(kind, 0 | 5 | 9000..=9022 | KIND_GIT_REPO_ANNOUNCEMENT | KIND_AGENT_PROFILE | KIND_ST8_GOVERNANCE_APPROVAL | KIND_ST8_COMPUTE_JOB | KIND_ST8_COMPUTE_RECEIPT | KIND_ST8_COMPUTE_DISPUTE | KIND_ST8_COMPUTE_SETTLEMENT | 41001..=41003 | 40099)
+    matches!(kind, 0 | 5 | 9000..=9022 | KIND_GIT_REPO_ANNOUNCEMENT | KIND_AGENT_PROFILE | KIND_ST8_GOVERNANCE_APPROVAL | KIND_ST8_COMPUTE_JOB | KIND_ST8_COMPUTE_RECEIPT | KIND_ST8_COMPUTE_DISPUTE | KIND_ST8_COMPUTE_RESOLUTION | KIND_ST8_COMPUTE_SETTLEMENT | 41001..=41003 | 40099)
 }
 
 async fn evict_live_channel_subscriptions(
@@ -223,6 +224,9 @@ pub async fn handle_side_effects(
         KIND_ST8_COMPUTE_JOB => super::compute::handle_job(tenant, event, state).await,
         KIND_ST8_COMPUTE_RECEIPT => super::compute::handle_receipt(tenant, event, state).await,
         KIND_ST8_COMPUTE_DISPUTE => super::compute::handle_dispute(tenant, event, state).await,
+        KIND_ST8_COMPUTE_RESOLUTION => {
+            super::compute::handle_resolution(tenant, event, state).await
+        }
         KIND_ST8_COMPUTE_SETTLEMENT => {
             super::compute::handle_settlement(tenant, event, state).await
         }

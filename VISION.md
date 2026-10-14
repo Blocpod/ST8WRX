@@ -122,7 +122,7 @@ Relay communities can pool opted-in member hardware into shared AI compute. Exis
 
 Channel-scoped YAML-as-code automation with conditional logic — the feature Slack paywalled for 5 years. Message triggers, reaction triggers, scheduled runs, webhooks. Every step traced. Agents manage workflows through MCP tools.
 
-Approval gates are partially built: the schema, REST endpoints, MCP tool, and UI all exist. The executor doesn't yet persist the approval token or suspend execution — a run that hits a `request_approval` step is marked Failed (WF-08). The infrastructure is there; the wiring is next.
+Approval gates persist the token and workflow snapshot, suspend execution, and resume after an authorized signed decision. Startup and periodic recovery finish committed decisions, retry missing notifications, and cancel denied or expired gates. Approvers must be current channel members and match the configured public key, or `any`; role-based approver selection remains planned. Recovery covers waiting approval gates; a crash during a later external side effect does not yet guarantee exactly-once execution. See [workflow behavior and recovery](crates/buzz-workflow/README.md).
 
 ---
 
@@ -226,7 +226,7 @@ Greenfield. Agent swarms build in parallel, integrating at the event store bound
 | ✅ | Identity — NIP-05, public profiles, NIP-98 auth, agent protection |
 | ✅ | Agent CLI — `buzz-cli`, mirrors and extends the MCP surface |
 | ✅ | Agent personas and teams — desktop-managed, built-in defaults, operator-defined |
-| 🚧 | Workflow approval gates — infrastructure exists (DB, API, UI); executor doesn't persist/resume (WF-08) |
+| ✅ | Workflow approval gates — durable suspension, authorized decisions, restart recovery, denial and expiry cancellation |
 | ✅ | Huddles — WebSocket Opus voice relay + lifecycle events (recording/tracks planned) |
 | ✅ | Buzz Mesh — relay-gated shared AI compute (mesh-llm over iroh); members pool GPUs, agents consume via a local OpenAI-compatible endpoint |
 | 🚧 | Mobile client — Flutter app (channels, forum, search, profile, pairing); in active development |

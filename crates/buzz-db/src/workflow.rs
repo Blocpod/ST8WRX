@@ -19,6 +19,12 @@ use buzz_core::CommunityId;
 
 use crate::error::{DbError, Result};
 
+mod approval_gate;
+pub use approval_gate::{
+    cancel_approval_transition, decide_approval_in_transaction, lock_approval_transition,
+    mark_approval_notified, pending_approval_transitions, suspend_approval,
+};
+
 // -- Token hashing ------------------------------------------------------------
 
 /// Default maximum rows returned by list queries. Callers may request fewer.
@@ -1145,7 +1151,7 @@ pub async fn update_approval_by_stored_hash(
             note            = $3,
             granted_at      = CASE WHEN $4 = 'granted' THEN NOW() ELSE granted_at END,
             denied_at       = CASE WHEN $5 = 'denied'  THEN NOW() ELSE denied_at  END
-        WHERE community_id = $6 AND token = $7 AND status = 'pending'
+        WHERE community_id = $6 AND token = $7 AND status = 'pending' AND expires_at > NOW()
         "#,
     )
     .bind(&status_str)

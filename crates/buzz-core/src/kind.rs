@@ -663,6 +663,8 @@ pub const KIND_ST8_COMPUTE_RECEIPT: u32 = 49812;
 pub const KIND_ST8_COMPUTE_DISPUTE: u32 = 49813;
 /// ST8 Compute: project-owner-signed periodic settlement snapshot.
 pub const KIND_ST8_COMPUTE_SETTLEMENT: u32 = 49814;
+/// ST8 Compute: project-owner final decision on an exact receipt dispute.
+pub const KIND_ST8_COMPUTE_RESOLUTION: u32 = 49815;
 
 /// All registered kind constants — used for duplicate detection and iteration.
 pub const ALL_KINDS: &[u32] = &[
@@ -808,6 +810,7 @@ pub const ALL_KINDS: &[u32] = &[
     KIND_ST8_COMPUTE_JOB,
     KIND_ST8_COMPUTE_RECEIPT,
     KIND_ST8_COMPUTE_DISPUTE,
+    KIND_ST8_COMPUTE_RESOLUTION,
     KIND_ST8_COMPUTE_SETTLEMENT,
 ];
 

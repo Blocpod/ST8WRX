@@ -2,6 +2,10 @@
 
 Audited snapshot: Buzz Desktop 0.5.18-era source supplied for the ST8WRX import.
 
+This records the import baseline, not current release readiness. See the
+[repository readiness audit](READINESS-AUDIT-2026-10-12.md) and current source for
+later ST8WRX implementation work.
+
 ## What is newer than the initial ST8WRX assumptions
 
 - Multi-repository projects are no longer only a design: NIP-MP kind 30621 is
@@ -27,7 +31,7 @@ Audited snapshot: Buzz Desktop 0.5.18-era source supplied for the ST8WRX import.
 | Signed Nostr events | evidence identity and authorship |
 | NIP-MP project + NIP-34 repositories | project scope and Git evidence |
 | Agent turn metrics/activity | future AgentWork evidence |
-| Buzz Mesh | future compute metering source |
+| Buzz Mesh | isolated local compute metering in ST8 Compute |
 | Workflow traces/approvals | future milestone and policy evidence |
 | Audit hash chain | dispute history and operational audit |
 | Blossom/S3 media | large content-addressed evidence |
@@ -36,7 +40,9 @@ Audited snapshot: Buzz Desktop 0.5.18-era source supplied for the ST8WRX import.
 ## Known upstream gaps relevant to ST8WRX
 
 - Workflow approval resume is incomplete.
-- No production rate limiter is implemented.
+- Rate limiting is implemented: Redis-backed admission control and scoped
+  observer, media, and invite limiters are wired through relay state. Deployment
+  capacity and policy still require validation against the intended workload.
 - Several workflow actions remain stubbed.
 - BSV wallet, settlement, contribution accounting, and economic governance are
   intentionally absent upstream.
